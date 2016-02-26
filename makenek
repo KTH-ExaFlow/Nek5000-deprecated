@@ -3,8 +3,8 @@
 # (c) 2008,2009,2010 UCHICAGO ARGONNE, LLC
 
 # source path 
-SOURCE_ROOT="$HOME/nek5_svn/trunk/nek" 
-SOURCE_ROOT2="$SOURCE_ROOT/cmt" 
+SOURCE_ROOT="$HOME/nek5_svn/trunk/nek"  
+SOURCE_ROOT2="$SOURCE_ROOT/cmt"
 
 # Fortran compiler
 F77="mpif77"
@@ -54,6 +54,18 @@ CC="mpicc"
  
 # MOAB/iMESH path
 #MOAB_DIR="$HOME/moab"
+
+# enable AMR with p4est
+#IFP4EST="true"
+# P4EST path
+#P4EST_DIR=$HOME/p4est
+# additional libraries
+#P4EST_LOPT="-lz"
+
+# enable bisection with ParMetis
+#IFPARMETIS="true"
+#PARMETIS path
+#PARMETIS_DIR=$HOME/parmetis
 
 # For linking to MOAB, the following might be needed:
 # NOTE: compiler specific, use the appropriate one depending on your compiler

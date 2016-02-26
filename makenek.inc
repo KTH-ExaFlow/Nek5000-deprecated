@@ -428,6 +428,89 @@ if [ $? -eq 0 ]; then
   echo "Activate DEBUG mode"
 fi
 
+#add AMR with p4est
+if [ "$IFP4EST" == "true" -o "$IFP4EST" == "yes" ]; then
+    echo ""
+    echo "Activate AMR with p4est"
+    IFP4EST=true
+
+# check p4est directory
+    if [ ! -d $P4EST_DIR ]; then
+        echo "ABORT: Cannot find " $P4EST_DIR 
+        exit 1
+    fi
+# check lib direcotry
+    if [ ! -d $P4EST_DIR/lib/ ]; then
+	echo "ABORT: Cannot find " $P4EST_DIR"/lib"
+        exit 1
+    else
+	P4EST_LIB=${P4EST_DIR}/lib/
+    fi
+    if [ ! -f $P4EST_DIR/lib/libsc.a ]; then
+	echo "ABORT: Cannot find sc library"
+        exit 1
+    fi
+    if [ ! -f $P4EST_DIR/lib/libp4est.a ]; then
+	echo "ABORT: Cannot find p4est library"
+        exit 1
+    fi
+# check include direcotry
+    if [ ! -d $P4EST_DIR/include/ ]; then
+	echo "ABORT: Cannot find " $P4EST_DIR"/include"
+        exit 1
+    else
+	P4EST_INC=${P4EST_DIR}/include/
+    fi
+    if [ ! -f $P4EST_DIR/include/sc.h ]; then
+	echo "ABORT: Cannot find sc header file"
+        exit 1
+    fi
+    if [ ! -f $P4EST_DIR/include/p4est.h ]; then
+	echo "ABORT: Cannot find p4est header file"
+        exit 1
+    fi
+
+# extract ldim and ldimt from size
+    if [ `grep -Ei 'parameter[[:space:]]*\([[:space:]]*ldim[[:space:]]*=[[:space:]]*[23][[:space:]]*\)' SIZE -c` -eq 1 ]; then
+	STRING_TMP=`grep -Ei 'parameter[[:space:]]*\([[:space:]]*ldim[[:space:]]*=[[:space:]]*[23][[:space:]]*\)' SIZE`
+	N_DIM=$(echo $STRING_TMP| sed 's/[^0-9]//g')
+	echo 'Grid dimension N_DIM =' $N_DIM
+    else
+	echo 'FATAL ERROR; no grid dimension found in SIZE'
+	exit 1
+    fi
+    if [ `grep -Ei 'parameter[[:space:]]*\([[:space:]]*ldimt[[:space:]]*=[[:space:]]*[[:digit:]]+[[:space:]]*\)' SIZE -c` -eq 1 ]; then
+	STRING_TMP=`grep -Ei 'parameter[[:space:]]*\([[:space:]]*ldimt[[:space:]]*=[[:space:]]*[[:digit:]]+[[:space:]]*\)' SIZE`
+	N_PSCL=$(echo $STRING_TMP| sed 's/[^0-9]//g')
+	echo 'Passive scalar number N_PSCL =' $N_PSCL
+    else
+	echo 'FATAL ERROR; no passive scalar number found in SIZE'
+	exit 1
+    fi
+
+# place for type tests; for now left empty; possible use of ioso_c_bindig as this is suggested way of wrapping
+
+# check bisection code
+     if [ "$IFPARMETIS" != "true" -a "$IFPARMETIS" != "yes" ]; then
+	 echo 'WARNING; p4est requres dynamical bisection code'
+	 echo '         setting IFPARMETIS=true'
+	 IFPARMETIS=true
+     fi
+
+# update preprocessing list
+     PPLIST="${PPLIST} NEKP4EST N_DIM=${N_DIM} N_PSCL=${N_PSCL}"
+
+# update makefile
+     sed -e "s/^IFP4EST[ ]*=.*/IFP4EST:=${IFP4EST}/" \
+	 -e "s:^P4EST_IFLAGS[ ]*=.*:P4EST_IFLAGS\:=-I${P4EST_INC}:" \
+	 -e "s:^P4EST_LFLAGS[ ]*=.*:P4EST_LFLAGS\:=-L${P4EST_LIB} -lp4est -lsc ${P4EST_LOPT}:" \
+	 -e "s/^PPS[ ]*=.*/PPS=$PPLIST/" \
+	 .makefile > .makefile.tmp
+
+     mv .makefile.tmp .makefile
+     echo ""
+fi
+
 if [ "$IFVISIT" == "true" -o "$IFVISIT" == "yes" ]; then
   echo ""
   echo "Activate VisIt Sim Mode"

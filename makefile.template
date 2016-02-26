@@ -26,6 +26,9 @@ USR_LFLAGS=
 IFVISIT=
 VISIT_IFLAGS=
 VISIT_LFLAGS=
+IFP4EST=
+P4EST_IFLAGS=
+P4EST_LFLAGS=
 
 ################################################################################
 
@@ -101,6 +104,14 @@ ifeq ($(IFVISIT),true)
   lFLAGS := ${lFLAGS} $(VISIT_LFLAGS)
 endif
 
+# P4EST ########################################################################
+ifeq ($(IFP4EST),true)
+  P4ESTNEK:=$(S)/nekp4est
+  P4ESTNEK_INCLUDES:=-I$(P4ESTNEK) -I$(P4ESTNEK)/DEF
+  P4ESTO := sc_fwrap.o p4est_fwrap.o nekp4est.o nekp4est_tool.o
+  lFLAGS := ${lFLAGS} $(P4EST_LFLAGS)
+endif
+
 # MOAB #########################################################################
 ifeq ($(IFMOAB),true)
   MOABNEK_INCLUDES:=-I$S/3rd_party
@@ -115,7 +126,7 @@ else
 	DUMMY:= $(shell rm -rf $S/mpif.h) 
 endif
 
-TMP1 = $(CORE) $(CMTCORE) $(MXM) $(USR) $(MOABO) $(COMM_MPI) $(NEKNEKO) $(VISITO) $(LPACK)
+TMP1 = $(CORE) $(CMTCORE) $(MXM) $(USR) $(MOABO) $(COMM_MPI) $(NEKNEKO) $(VISITO) $(LPACK) $(P4ESTO)
 NOBJS_F = $(patsubst %,$(OBJDIR)/%,$(TMP1))
 TMP2 = $(JLCORE) $(JLINTP) $(CGS) 
 NOBJS_C = $(patsubst %,$(OBJDIR)/%,$(TMP2))
@@ -144,7 +155,7 @@ objdir:
 	@mkdir $(OBJDIR) 2>/dev/null; cat /dev/null 
 
 nek5000:	objdir $(NOBJS)
-	$(F77) -c $(FL2) $(CASEDIR)/${CASENAME}.f $(MOABNEK_INCLUDES) $(VISITNEK_INCLUDES) $(IMESH_INCLUDES) -o ${OBJDIR}/${CASENAME}.o 
+	$(F77) -c $(FL2) $(CASEDIR)/${CASENAME}.f $(MOABNEK_INCLUDES) $(VISITNEK_INCLUDES) $(P4ESTNEK_INCLUDES) $(IMESH_INCLUDES) -o ${OBJDIR}/${CASENAME}.o 
 	$(F77) -o ${BINNAME} $G ${OBJDIR}/${CASENAME}.o $(NOBJS) $(lFLAGS)
 	@if test -f ${BINNAME}; then \
 	echo "#############################################################"; \
@@ -300,3 +311,9 @@ $(OBJDIR)/imeshutil.o   :$S/3rd_party/imeshutil.f;  	$(F77) -c $(FL2) $(IMESH_IN
 $(OBJDIR)/imeshcutil.o   :$S/3rd_party/imeshcutil.c;  	$(CC) -c $(cFL2) $< -o $@
 $(OBJDIR)/visit.o        :$S/3rd_party/visit.f;			$(F77) -c $(VISIT_IFLAGS) $(FL2) $< -o $@
 $(OBJDIR)/nek_in_situ.o  :$S/3rd_party/nek_in_situ.f;	$(F77) -c $(VISIT_IFLAGS) $(FL2) $< -o $@
+
+# nekp4est #######################################################################################
+$(OBJDIR)/sc_fwrap.o       :$(P4ESTNEK)/sc_fwrap.c;       $(CC) -c $(cFL2) $(P4EST_IFLAGS) -I$J $(P4ESTNEK_INCLUDES) $< -o $@
+$(OBJDIR)/p4est_fwrap.o    :$(P4ESTNEK)/p4est_fwrap.c;    $(CC) -c $(cFL2) $(P4EST_IFLAGS) -I$J $(P4ESTNEK_INCLUDES) $< -o $@
+$(OBJDIR)/nekp4est.o       :$(P4ESTNEK)/nekp4est.f;       $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
+$(OBJDIR)/nekp4est_tool.o  :$(P4ESTNEK)/nekp4est_tool.f;  $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
