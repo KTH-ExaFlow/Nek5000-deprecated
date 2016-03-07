@@ -1,14 +1,10 @@
-/*
- * sc_fwrap.h
- * Header file for Fortran77 interface of sc library
+/** @file sc_fwrap.h
+ * @brief Fortran77 interface of sc library
  *
- *  Created on: Feb 20, 2016
- *      Author: Adam Peplinski
- */
-/** \file sc_fwrap.h
- *  Fortran77 interface of sc library
+ * @author Adam Peplinski
+ * @date Feb 20, 2016
  *
- * \ingroup nekp4est
+ * @ingroup nekp4est
  */
 #ifndef NEKP4EST_SC_FWRAP_H_
 #define NEKP4EST_SC_FWRAP_H_

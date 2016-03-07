@@ -1,4 +1,3 @@
-
 /*
  * sc_fwrap.c
  * Fortran interface for sc library.

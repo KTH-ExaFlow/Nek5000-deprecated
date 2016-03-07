@@ -1,12 +1,10 @@
+!> @brief set of tools for nekp4est
+!! @author Adam Peplinski
+!! @date Feb 26, 2016
 !=======================================================================
-! Name        : nekp4est_tool
-! Author      : Adam Peplinski
-! Version     :
-! Copyright   : GPL
-! Description : set of subroutines to implement p4est in nek5000
-!               Smple tools
-!=======================================================================
-!     subroutine for writing log messages
+!> @brief Write log messages
+!! @parameter[in] priority  log priority
+!! @parameter[in] logs      log body
       subroutine nekp4est_log(priority,logs)
       implicit none
 !     input variables
@@ -21,7 +19,7 @@
       if (icalld.eq.0) then
         icalld=1
 
-!     register package
+!     register nekp4est package
         call fsc_pkg_reg(pkg_id,priority,'nekp4est'//CHAR(0),
      $  'SEM solver.'//CHAR(0))
       endif
@@ -31,7 +29,8 @@
       return
       end
 !=======================================================================
-!     sc based abort function
+!> @brief SC based abort function
+!! @parameter[in] logs      log body
       subroutine nekp4est_abort(logs)
       implicit none
 
@@ -42,7 +41,9 @@
       return
       end
 !=======================================================================
-!     sc based check abort function
+!> @brief SC based check abort function
+!! @parameter[in] ierr      error indicator
+!! @parameter[in] logs      log body
       subroutine nekp4est_chk_abort(ierr,logs)
       implicit none
 

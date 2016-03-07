@@ -1,14 +1,10 @@
-/*
- * p4est_fwrap.h
- * Header file for Fortran77 interface of p4est library
+/** @file p4est_fwrap.h
+ *  @brief Fortran77 interface of p4est library
  *
- *  Created on: Feb 21, 2016
- *      Author: Adam Peplinski
- */
-/** \file p4est_fwrap.h
- *  Fortran77 interface of p4est library
+ * @author Adam Peplinski
+ * @date Feb 20, 2016
  *
- * \ingroup nekp4est
+ * @ingroup nekp4est
  */
 #ifndef NEKP4EST_P4EST_FWRAP_H_
 #define NEKP4EST_P4EST_FWRAP_H_

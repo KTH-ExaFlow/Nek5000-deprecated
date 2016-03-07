@@ -1,16 +1,12 @@
-/*
- * nekp4est.h
- * Header file for C-Fortran77 interface
+/** @file nekp4est.h
+ *  @brief Definitions for C-Fortran77 interface in nekp4est
  *
- *  Created on: Feb 20, 2016
- *      Author: adam
- */
-/** \file nekp4est.h
- *  Definitions for C-Fortran77 interface in nekp4est
+ * @author Adam Peplinski
+ * @date Feb 20, 2016
  *
- * \ingroup nekp4est
+ * @ingroup nekp4est
  */
-/** \defgroup nekp4est nekp4est
+/** @defgroup nekp4est nekp4est
  *
  * AMR version of nek5000
  */
@@ -31,7 +27,5 @@
 #if !defined(N_PSCL)
 #error "Undefined N_PSCL check makenek options"
 #endif
-
-#define N_LOG 4
 
 #endif /* NEKP4EST_H_ */

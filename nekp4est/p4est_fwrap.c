@@ -47,12 +47,12 @@
 /*------------------------------------------------------------------------------
  * Global varaibles
 ------------------------------------------------------------------------------*/
-static p4est_t            *p4est_nekton;
-static p4est_connectivity_t *connectivity_nekton;
-static p4est_ghost_t *ghost_nekton;
-static p4est_nodes_t *nodes_nekton;
-static p4est_lnodes_t	*lnodes_nekton;
-static p4est_mesh_t *mesh_nekton;
+static p4est_connectivity_t *connect_nek=NULL;
+static p4est_t              *tree_nek=NULL;
+static p4est_mesh_t         *mesh_nek=NULL;
+static p4est_ghost_t        *ghost_nek=NULL;
+static p4est_nodes_t        *nodes_nek=NULL;
+static p4est_lnodes_t	    *lnodes_nek=NULL;
 
 /*------------------------------------------------------------------------------
  * internal subroutines for interaction with fortran
@@ -161,7 +161,7 @@ void fp4est_cnn_new(int * num_vertices, int * num_trees,
 	}
 
 #ifdef P4_TO_P8
-	connectivity_nekton = p4est_connectivity_new_copy(num_verticesl, num_treesl,
+	connect_nek = p4est_connectivity_new_copy(num_verticesl, num_treesl,
 			num_edgesl,
 			num_cornersl,
 			verticesl, tree_to_vertexl,
@@ -171,7 +171,7 @@ void fp4est_cnn_new(int * num_vertices, int * num_trees,
 			tree_to_cornerl, ctt_offsetl,
 			corner_to_treel, corner_to_cornerl);
 #else
-	connectivity_nekton = p4est_connectivity_new_copy(num_verticesl, num_treesl,
+	connect_nek = p4est_connectivity_new_copy(num_verticesl, num_treesl,
 			num_cornersl,
 			verticesl, tree_to_vertexl,
 			tree_to_treel, tree_to_facel,
@@ -182,32 +182,34 @@ void fp4est_cnn_new(int * num_vertices, int * num_trees,
 
 void fp4est_cnn_del()
 {
-	p4est_connectivity_destroy(connectivity_nekton);
+	if (connect_nek) {
+		p4est_connectivity_destroy(connect_nek);
+	}
 }
 
 void fp4est_cnn_attr(int * enable_tree_attr)
 {
-	p4est_connectivity_set_attr (connectivity_nekton, *enable_tree_attr);
+	p4est_connectivity_set_attr (connect_nek, *enable_tree_attr);
 }
 
 void fp4est_cnn_valid(int * is_valid)
 {
-	*is_valid = p4est_connectivity_is_valid(connectivity_nekton);
+	*is_valid = p4est_connectivity_is_valid(connect_nek);
 }
 
 void fp4est_cnn_complete()
 {
-	p4est_connectivity_complete(connectivity_nekton);
+	p4est_connectivity_complete(connect_nek);
 }
 
 void fp4est_cnn_save(char *filename, int len_f)
 {
-	p4est_connectivity_save (filename,connectivity_nekton);
+	p4est_connectivity_save (filename,connect_nek);
 }
 
 void fp4est_cnn_load(char * filename, int len_f)
 {
-	connectivity_nekton = p4est_connectivity_load (filename, NULL);
+	connect_nek = p4est_connectivity_load (filename, NULL);
 }
 
 /* tree_ management */
@@ -215,72 +217,82 @@ void fp4est_tree_new(MPI_Fint * fmpicomm, int * min_level)
 {
 	MPI_Comm mpicomm;
 	mpicomm = MPI_Comm_f2c(*fmpicomm);
-	p4est_nekton = p4est_new_ext (mpicomm,connectivity_nekton, 0, *min_level, 1,
+	tree_nek = p4est_new_ext (mpicomm,connect_nek, 0, *min_level, 1,
 			sizeof(user_data_t), init_mshv, NULL);
 }
 
 void fp4est_tree_del()
 {
-	p4est_destroy (p4est_nekton);
+	if (tree_nek) {
+		p4est_destroy (tree_nek);
+	}
 }
 
 void fp4est_tree_valid(int * is_valid)
 {
-	*is_valid = p4est_is_valid(p4est_nekton);
+	*is_valid = p4est_is_valid(tree_nek);
 }
 
 void fp4est_tree_save(int *save_data, char * filename, int len_f)
 {
-	p4est_save (filename, p4est_nekton, *save_data);
+	p4est_save (filename, tree_nek, *save_data);
 }
 
 void fp4est_tree_load(MPI_Fint * fmpicomm, int *load_data, char * filename, int len_f)
 {
 	MPI_Comm mpicomm;
 	mpicomm = MPI_Comm_f2c(*fmpicomm);
-	p4est_nekton = p4est_load (filename, mpicomm, sizeof(user_data_t), *load_data,
-			NULL, &connectivity_nekton);
+	tree_nek = p4est_load (filename, mpicomm, sizeof(user_data_t), *load_data,
+			NULL, &connect_nek);
 }
 
 /* tree and grid info */
 void fp4est_ghost_new()
 {
-	ghost_nekton = p4est_ghost_new(p4est_nekton,P4EST_CONNECT_FULL);
+	ghost_nek = p4est_ghost_new(tree_nek,P4EST_CONNECT_FULL);
 }
 
 void fp4est_ghost_del()
 {
-	p4est_ghost_destroy(ghost_nekton);
+	if (ghost_nek) {
+		p4est_ghost_destroy(ghost_nek);
+	}
 }
 
 void fp4est_mesh_new()
 {
-	mesh_nekton = p4est_mesh_new(p4est_nekton,ghost_nekton,P4EST_CONNECT_FULL);
+	mesh_nek = p4est_mesh_new(tree_nek,ghost_nek,P4EST_CONNECT_FULL);
 }
 
 void fp4est_mesh_del()
 {
-	p4est_mesh_destroy(mesh_nekton);
+	if (mesh_nek) {
+		p4est_mesh_destroy(mesh_nek);
+	}
 }
 
 void fp4est_nodes_new()
 {
-	nodes_nekton = p4est_nodes_new(p4est_nekton,ghost_nekton);
+	nodes_nek = p4est_nodes_new(tree_nek,ghost_nek);
 }
 
 void fp4est_nodes_del()
 {
-	p4est_nodes_destroy(nodes_nekton);
+	if (nodes_nek) {
+		p4est_nodes_destroy(nodes_nek);
+	}
 }
 
 void fp4est_lnodes_new(int ldgr)
 {
-	lnodes_nekton = p4est_lnodes_new(p4est_nekton,ghost_nekton,ldgr);
+	lnodes_nek = p4est_lnodes_new(tree_nek,ghost_nek,ldgr);
 }
 
 void fp4est_lnodes_del()
 {
-	p4est_lnodes_destroy(lnodes_nekton);
+	if (lnodes_nek) {
+		p4est_lnodes_destroy(lnodes_nek);
+	}
 }
 
 /* nekp4est internal load balance */
@@ -290,7 +302,7 @@ void fp4est_part()
          * partition can optionally be modified such that a family of octants, which
          * are possibly ready for coarsening, are never split between processors. */
         int partforcoarsen= 0;
-        p4est_partition (p4est_nekton,partforcoarsen,NULL);
+        p4est_partition (tree_nek,partforcoarsen,NULL);
 }
 
 /* place for refinement, coarsening, balance */
@@ -298,7 +310,7 @@ void fp4est_part()
 /* I/O (VTK) */
 void fp4est_vtk_write(char * filename, int len_f)
 {
-	p4est_vtk_write_file (p4est_nekton, NULL, filename);
+	p4est_vtk_write_file (tree_nek, NULL, filename);
 }
 
 void fp4est_vtk_iscalar(int * iscalar,int *num,char * filename, int len_f)
@@ -312,7 +324,7 @@ void fp4est_vtk_iscalar(int * iscalar,int *num,char * filename, int len_f)
 		}
 	}
 
-	err = p4est_vtk_write_header (p4est_nekton, NULL, 1.0, 0, 0, 0, 0, "scalar", NULL, filename);
-	err = p4est_vtk_write_point_scalar (p4est_nekton, NULL, filename, "scalar", rscalar);
-	err = p4est_vtk_write_footer (p4est_nekton, filename);
+	err = p4est_vtk_write_header (tree_nek, NULL, 1.0, 0, 0, 0, 0, "scalar", NULL, filename);
+	err = p4est_vtk_write_point_scalar (tree_nek, NULL, filename, "scalar", rscalar);
+	err = p4est_vtk_write_footer (tree_nek, filename);
 }

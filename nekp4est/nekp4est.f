@@ -1,14 +1,12 @@
+!> @brief Main interface for nekp4est
+!! @author Adam Peplinski
+!! @date Feb 26, 2016
 !=======================================================================
-! Name        : nekp4est
-! Author      : Adam Peplinski
-! Version     :
-! Copyright   : GPL
-! Description : set of subroutines to implement p4est in nek5000
-!=======================================================================
-!     initialisation of sc and p4est libraries
+!> @brief Initialisation of sc and p4est libraries
+!! @parameter[in] intracomm mpi communicator
       subroutine nekp4est_init(intracomm)
       implicit none
-#include "nekp4est.h"
+
       include 'SIZE_DEF'
       include 'SIZE'
       include 'INPUT_DEF'
@@ -19,22 +17,6 @@
       integer intracomm
 
 !     local variables
-
-!     log proirities
-!     DEFAULT   (-1)    /* this selects the SC default threshold */
-!     ALWAYS      0     /* this will log everything */
-!     TRACE       1     /* this will prefix file and line number */
-!     DEBUG       2     /* any information on the internal state */
-!     VERBOSE     3     /* information on conditions, decisions */
-!     INFO        4     /* the main things a function is doing */
-!     STATISTICS  5     /* important for consistency or performance */
-!     PRODUCTION  6     /* a few lines for a major api function */
-!     ESSENTIAL   7     /* this logs a few lines max per program */
-!     ERROR       8     /* this logs errors only */
-!     SILENT      9     /* this never logs anything */
-      integer log_level
-      parameter (log_level=N_LOG)
-
 !     simple timing
       real t1, t2, tmp
 
@@ -44,7 +26,7 @@
 !     simple timing
       t1 = dnekclock()
 
-!     reset timers
+!     reset AMR timers
       NP4_TC = 0.0
       NP4_TCI = 0.0
       NP4_TCF = 0.0
@@ -75,37 +57,37 @@
 !     reset mapping count
       NP4_IMAP = 0
 
-!     sc init
-      call fsc_set_log(log_level)
+!     set initial default log level
+      NP4_LP_DEF=NP4_LP_PRD
+      call fsc_set_log(NP4_LP_DEF)
 
-      call fsc_init(intracomm, 1, 0, log_level)
+!     sc init
+      call fsc_init(intracomm, 1, 0, NP4_LP_DEF)
 
 !     p4est init
-      call fp4est_init(log_level)
+      call fp4est_init(NP4_LP_DEF)
 
-      call nekp4est_log(log_level,'Starting nekp4est logs.'//CHAR(0))
+      call nekp4est_log(NP4_LP_DEF,'Starting nekp4est logs.')
  
-!     check consistency of nekp4est.h and SIZE
-!     in general it should be done differently; e.g. SIZE should be based on nekp4est.h
+!     check consistency with SIZE
       if (N_DIM.ne.LDIM)
-     $ call nekp4est_abort('Error: nekp4est ldim inconsistent'//CHAR(0))
+     $ call nekp4est_abort('Error: nekp4est ldim inconsistent')
 
       if (N_PSCL.ne.LDIMT)
-     $call nekp4est_abort('Error: nekp4est ldimt inconsistent'//CHAR(0))
+     $call nekp4est_abort('Error: nekp4est ldimt inconsistent')
 
 !     for now as interpolation for hanging faces does not support it yet
       if (IF3D) then
         if(mod(LX1,2).eq.1.or.mod(LY1,2).eq.1.or.mod(LZ1,2).eq.1)
-     $call nekp4est_abort('Error: nekp4est LX1 must be even.'//CHAR(0))
+     $call nekp4est_abort('Error: nekp4est LX1 must be even.')
       else
         if(mod(LX1,2).eq.1.or.mod(LY1,2).eq.1)
-     $call nekp4est_abort('Error: nekp4est LX1 must be even.'//CHAR(0))
+     $call nekp4est_abort('Error: nekp4est LX1 must be even.')
       endif
 
 !     this is temporary
 #ifdef MOAB
-      call nekp4est_abort
-     $         ('Error: nekp4est does not support moab'//CHAR(0))
+      call nekp4est_abort('Error: nekp4est does not support moab')
 #endif
 
 !     set reset flag
@@ -121,10 +103,10 @@
       return
       end
 !=======================================================================
-!     finalize p4est in nekton
+!> @brief Finalisation of sc and p4est in nekton
       subroutine nekp4est_end()
       implicit none
-#include "nekp4est.h"
+
       include 'SIZE_DEF'
       include 'SIZE'
       include 'PARALLEL_DEF'
@@ -134,13 +116,11 @@
       include 'NEKP4EST'
 
 !     local variables
+!     file name
       integer ls
       character*132 filename
       character filename1(132)
       equivalence (filename,filename1)
-
-      integer log_level
-      parameter (log_level=N_LOG)
 
 !     simple timing
       real t1, t2, tmp
@@ -160,11 +140,16 @@
       call chcopy(filename1(ls+10),CHAR(0),1)
 
 !     save current tree structure
-      call nekp4est_log(6,'Saving forest data.'//CHAR(0))
+      call nekp4est_log(NP4_LP_PRD,'Saving forest data.')
 !      call fp4est_tree_save(1,filename)
 
 !     save GLL points to MSH file
-!      call nekp4est_mfo('MSH')
+      if (NP4_IOSTOP.eq.NP4_IOSTART) then
+        if (NIO.eq.0) write(6,*) 'Warning; nekp4est_mfo: equal ',
+     $      'input/output file numbers, adjusting'
+        NP4_IOSTOP = NP4_IOSTOP +1
+      endif
+      call nekp4est_mfo('MSH',NP4_IOSTOP)
 
 !     release memory
 !     delete mesh and ghost cells
@@ -175,7 +160,7 @@
       call fp4est_cnn_del()
 
 !     sc end
-      call fsc_pkg_print(log_level)
+      call fsc_pkg_print(NP4_LP_DEF)
       call fsc_finalize()
 
 !     simple timing

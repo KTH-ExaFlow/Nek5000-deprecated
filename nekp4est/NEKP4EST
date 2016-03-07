@@ -1,11 +1,27 @@
-!=======================================================================
-! Name        : NEKP4EST
-! Author      : Adam Peplinski
-! Version     :
-! Copyright   : GPL
-! Description : include file with common block definitions for 
-!               general variables
-!=======================================================================
+!> @file NEKP4EST
+!! @brief include file with parameter and common block definitions for 
+!! global nekp4est variables
+!! @author Adam Peplinski
+!! @date Feb 26, 2016
+
+!     log priorities based on sc.h
+      integer NP4_LP_ALW, NP4_LP_TRC, NP4_LP_DEB, NP4_LP_VRB, 
+     $        NP4_LP_INF, NP4_LP_STT, NP4_LP_PRD, NP4_LP_ESS, 
+     $        NP4_LP_ERR, NP4_LP_SLN
+      parameter (NP4_LP_ALW=0)  !< always; this will log everything
+      parameter (NP4_LP_TRC=1)  !< trace; this will prefix file and line number
+      parameter (NP4_LP_DEB=2)  !< debug; any information on the internal state
+      parameter (NP4_LP_VRB=3)  !< verbose; information on conditions, decisions
+      parameter (NP4_LP_INF=4)  !< info; the main things a function is doing
+      parameter (NP4_LP_STT=5)  !< statistics; important for consistency or performance
+      parameter (NP4_LP_PRD=6)  !< production; a few lines for a major api function
+      parameter (NP4_LP_ESS=7)  !< essential; this logs a few lines max per program
+      parameter (NP4_LP_ERR=8)  !< error; this logs errors only
+      parameter (NP4_LP_SLN=9)  !< silent; this never logs anything
+
+      integer NP4_LP_DEF  !<  default log threshold for nekp4est
+      common /nekp4est_lp/ NP4_LP_DEF
+
 !     local element count (V mesh)
 !     variable for element counting
       integer EL_COUNT
@@ -17,8 +33,10 @@
       common /nekp4est_cbci/ IBC,NFLDT
 
 !     module parameters
-!     NP4_LMAX - max refinement level
-      integer NP4_LMAX
+      integer NP4_IOSTART, NP4_IOSTOP  !< number of the restart and save files
+      common /nekp4est_io_file/ NP4_IOSTART, NP4_IOSTOP
+
+      integer NP4_LMAX      !< max refinement level
       common /nekp4est_iparam/ NP4_LMAX
 
 !     p4est mesh info; p4est mesh differs from nekton one

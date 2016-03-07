@@ -511,6 +511,64 @@ if [ "$IFP4EST" == "true" -o "$IFP4EST" == "yes" ]; then
      echo ""
 fi
 
+#add bisection code with ParMetis
+if [ "$IFPARMETIS" == "true" -o "$IFPARMETIS" == "yes" ]; then
+    echo ""
+    echo "Activate dynamical bisection with ParMetis"
+    IFPARMETIS=true
+
+# check p4est directory
+    if [ ! -d $PARMETIS_DIR ]; then
+        echo "ABORT: Cannot find " $PARMETIS_DIR 
+        exit 1
+    fi
+# check lib direcotry
+    if [ ! -d $PARMETIS_DIR/lib/ ]; then
+	echo "ABORT: Cannot find " $PARMETIS_DIR"/lib"
+        exit 1
+    else
+	PARMETIS_LIB=${PARMETIS_DIR}/lib/
+    fi
+    if [ ! -f $PARMETIS_DIR/lib/libmetis.a ]; then
+	echo "ABORT: Cannot find metis library"
+        exit 1
+    fi
+    if [ ! -f $PARMETIS_DIR/lib/libparmetis.a ]; then
+	echo "ABORT: Cannot find parmetis library"
+        exit 1
+    fi
+# check include direcotry
+    if [ ! -d $PARMETIS_DIR/include/ ]; then
+	echo "ABORT: Cannot find " $PARMETIS_DIR"/include"
+        exit 1
+    else
+	PARMETIS_INC=${PARMETIS_DIR}/include/
+    fi
+    if [ ! -f $PARMETIS_DIR/include/metis.h ]; then
+	echo "ABORT: Cannot find metis header file"
+        exit 1
+    fi
+    if [ ! -f $PARMETIS_DIR/include/parmetis.h ]; then
+	echo "ABORT: Cannot find parmetis header file"
+        exit 1
+    fi
+    
+# place for type tests; for now left empty; possible use of ioso_c_bindig as this is suggested way of wrapping
+
+    # update preprocessing list
+     PPLIST="${PPLIST} NEKPMETIS"
+
+    # update makefile
+     sed -e "s/^IFPMETIS[ ]*=.*/IFPMETIS:=${IFPARMETIS}/" \
+	 -e "s:^PMETIS_IFLAGS[ ]*=.*:PMETIS_IFLAGS\:=-I${PARMETIS_INC}:" \
+	 -e "s:^PMETIS_LFLAGS[ ]*=.*:PMETIS_LFLAGS\:=-L${PARMETIS_LIB} -lparmetis -lmetis ${PARMETIS_LOPT}:" \
+	 -e "s/^PPS[ ]*=.*/PPS=$PPLIST/" \
+	 .makefile > .makefile.tmp
+
+     mv .makefile.tmp .makefile
+     echo ""
+fi
+
 if [ "$IFVISIT" == "true" -o "$IFVISIT" == "yes" ]; then
   echo ""
   echo "Activate VisIt Sim Mode"

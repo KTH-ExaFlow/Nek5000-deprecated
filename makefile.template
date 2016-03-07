@@ -29,6 +29,9 @@ VISIT_LFLAGS=
 IFP4EST=
 P4EST_IFLAGS=
 P4EST_LFLAGS=
+IFPMETIS=
+PMETIS_IFLAGS=
+PMETIS_LFLAGS=
 
 ################################################################################
 
@@ -108,8 +111,16 @@ endif
 ifeq ($(IFP4EST),true)
   P4ESTNEK:=$(S)/nekp4est
   P4ESTNEK_INCLUDES:=-I$(P4ESTNEK) -I$(P4ESTNEK)/DEF
-  P4ESTO := sc_fwrap.o p4est_fwrap.o nekp4est.o nekp4est_tool.o
+  P4ESTO := sc_fwrap.o p4est_fwrap.o nekp4est.o nekp4est_tool.o nekp4est_IO.o
   lFLAGS := ${lFLAGS} $(P4EST_LFLAGS)
+endif
+
+# PMETIS ########################################################################
+ifeq ($(IFPMETIS),true)
+  PMETISNEK:=$(S)/nekp4est/pmetis
+  PMETISNEK_INCLUDES:=-I$(PMETISNEK) -I$(P4ESTNEK)/DEF
+  PMETISO := pmetis_fwrap.o
+  lFLAGS := ${lFLAGS} $(PMETIS_LFLAGS)
 endif
 
 # MOAB #########################################################################
@@ -126,7 +137,7 @@ else
 	DUMMY:= $(shell rm -rf $S/mpif.h) 
 endif
 
-TMP1 = $(CORE) $(CMTCORE) $(MXM) $(USR) $(MOABO) $(COMM_MPI) $(NEKNEKO) $(VISITO) $(LPACK) $(P4ESTO)
+TMP1 = $(CORE) $(CMTCORE) $(MXM) $(USR) $(MOABO) $(COMM_MPI) $(NEKNEKO) $(VISITO) $(LPACK) $(P4ESTO) $(PMETISO)
 NOBJS_F = $(patsubst %,$(OBJDIR)/%,$(TMP1))
 TMP2 = $(JLCORE) $(JLINTP) $(CGS) 
 NOBJS_C = $(patsubst %,$(OBJDIR)/%,$(TMP2))
@@ -155,7 +166,7 @@ objdir:
 	@mkdir $(OBJDIR) 2>/dev/null; cat /dev/null 
 
 nek5000:	objdir $(NOBJS)
-	$(F77) -c $(FL2) $(CASEDIR)/${CASENAME}.f $(MOABNEK_INCLUDES) $(VISITNEK_INCLUDES) $(P4ESTNEK_INCLUDES) $(IMESH_INCLUDES) -o ${OBJDIR}/${CASENAME}.o 
+	$(F77) -c $(FL2) $(CASEDIR)/${CASENAME}.f $(MOABNEK_INCLUDES) $(VISITNEK_INCLUDES) $(P4ESTNEK_INCLUDES) $(PMETISNEK_INCLUDES) $(IMESH_INCLUDES) -o ${OBJDIR}/${CASENAME}.o 
 	$(F77) -o ${BINNAME} $G ${OBJDIR}/${CASENAME}.o $(NOBJS) $(lFLAGS)
 	@if test -f ${BINNAME}; then \
 	echo "#############################################################"; \
@@ -317,3 +328,7 @@ $(OBJDIR)/sc_fwrap.o       :$(P4ESTNEK)/sc_fwrap.c;       $(CC) -c $(cFL2) $(P4E
 $(OBJDIR)/p4est_fwrap.o    :$(P4ESTNEK)/p4est_fwrap.c;    $(CC) -c $(cFL2) $(P4EST_IFLAGS) -I$J $(P4ESTNEK_INCLUDES) $< -o $@
 $(OBJDIR)/nekp4est.o       :$(P4ESTNEK)/nekp4est.f;       $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
 $(OBJDIR)/nekp4est_tool.o  :$(P4ESTNEK)/nekp4est_tool.f;  $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
+$(OBJDIR)/nekp4est_IO.o    :$(P4ESTNEK)/nekp4est_IO.f;    $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
+
+# nekpmetis #######################################################################################
+$(OBJDIR)/pmetis_fwrap.o   :$(PMETISNEK)/pmetis_fwrap.c;   $(CC) -c $(cFL2) $(PMETIS_IFLAGS) -I$J $(PMETISNEK_INCLUDES) $< -o $@

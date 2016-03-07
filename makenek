@@ -66,6 +66,8 @@ CC="mpicc"
 #IFPARMETIS="true"
 #PARMETIS path
 #PARMETIS_DIR=$HOME/parmetis
+# additional libraries
+#PARMETIS_LOPT=""
 
 # For linking to MOAB, the following might be needed:
 # NOTE: compiler specific, use the appropriate one depending on your compiler

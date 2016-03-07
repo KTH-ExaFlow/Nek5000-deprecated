@@ -35,6 +35,11 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       nio = -1             ! Default io flag 
       if(nid.eq.0) nio=0   ! Only node 0 writes
       
+#ifdef NEKP4EST
+!     initialise p4est package
+      call nekp4est_init(intracomm)
+#endif
+
       etimes = dnekclock()
       istep  = 0
       tpp    = 0.0
@@ -303,6 +308,10 @@ c-----------------------------------------------------------------------
       include 'TSTEP'
       include 'PARALLEL'
       include 'OPCTR'
+
+#ifdef NEKP4EST
+      call nekp4est_end()
+#endif
 
       if(instep.ne.0)  call runstat
       if(xxth(1).gt.0) call crs_stats(xxth(1))
