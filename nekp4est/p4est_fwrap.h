@@ -25,7 +25,9 @@
  * #define fp4est_ FORTRAN_NAME(fp4est_,FP4EST_)
  */
 /* wrappers */
+/* initialize */
 #define fp4est_init         FORTRAN_NAME(fp4est_init,FP4EST_INIT)
+/* Connectivity */
 #define fp4est_cnn_new      FORTRAN_NAME(fp4est_cnn_new,FP4EST_CNN_NEW)
 #define fp4est_cnn_del      FORTRAN_NAME(fp4est_cnn_del,FP4EST_CNN_DEL)
 #define fp4est_cnn_attr     FORTRAN_NAME(fp4est_cnn_attr,FP4EST_CNN_ATTR)
@@ -33,11 +35,13 @@
 #define fp4est_cnn_compl    FORTRAN_NAME(fp4est_cnn_compl,FP4EST_CNN_COMPL)
 #define fp4est_cnn_save     FORTRAN_NAME(fp4est_cnn_save,FP4EST_CNN_SAVE)
 #define fp4est_cnn_load     FORTRAN_NAME(fp4est_cnn_load,FP4EST_CNN_LOAD)
+/* tree_ management */
 #define fp4est_tree_new     FORTRAN_NAME(fp4est_tree_new,FP4EST_TREE_NEW)
 #define fp4est_tree_del     FORTRAN_NAME(fp4est_tree_del,FP4EST_TREE_DEL)
 #define fp4est_tree_valid   FORTRAN_NAME(fp4est_tree_valid,FP4EST_TREE_VALID)
 #define fp4est_tree_save    FORTRAN_NAME(fp4est_tree_save,FP4EST_TREE_SAVE)
 #define fp4est_tree_load    FORTRAN_NAME(fp4est_tree_load,FP4EST_TREE_LOAD)
+/* tree and grid info */
 #define fp4est_ghost_new    FORTRAN_NAME(fp4est_ghost_new,FP4EST_GHOST_NEW)
 #define fp4est_ghost_del    FORTRAN_NAME(fp4est_ghost_del,FP4EST_GHOST_DEL)
 #define fp4est_mesh_new     FORTRAN_NAME(fp4est_mesh_new,FP4EST_MESH_NEW)
@@ -46,7 +50,23 @@
 #define fp4est_nodes_del    FORTRAN_NAME(fp4est_nodes_del,FP4EST_NODES_DEL)
 #define fp4est_lnodes_new   FORTRAN_NAME(fp4est_lnodes_new,FP4EST_LNODES_NEW)
 #define fp4est_lnodes_del   FORTRAN_NAME(fp4est_lnodes_del,FP4EST_LNODES_DEL)
+/* nekp4est internal load balance */
 #define fp4est_part         FORTRAN_NAME(fp4est_part,FP4EST_PART)
+/* refinement, coarsening, balance */
+/* I/O (VTK) */
+#define fp4est_vtk_write    FORTRAN_NAME(fp4est_vtk_write,FP4EST_VTK_WRITE)
+#define fp4est_vtk_iscalar  FORTRAN_NAME(fp4est_vtk_iscalar,FP4EST_VTK_ISCALAR)
+/* routines required by Nek5000 for data exchange */
+#define fp4est_msh_get_size  FORTRAN_NAME(fp4est_msh_get_size,FP4EST_MSH_GET_SIZE)
+#define fp4est_msh_get_dat   FORTRAN_NAME(fp4est_msh_get_dat,FP4EST_MSH_GET_DAT)
+#define fp4est_msh_get_node   FORTRAN_NAME(fp4est_msh_get_node,FP4EST_MSH_GET_NODE)
+/* callback routines */
+#define nek_init_msh_dat FORTRAN_NAME(nek_init_msh_dat,NEK_INIT_MSH_DAT)
+#define nek_get_msh_dat FORTRAN_NAME(nek_get_msh_dat,NEK_GET_MSH_DAT)
+#define nek_get_msh_hst FORTRAN_NAME(nek_get_msh_hst,NEK_GET_MSH_HST)
+#define nek_refine_mark FORTRAN_NAME(nek_refine_mark,NEK_REFINE_MARK)
+/* Fortran common blocks required by p4est */
+#define nekp4est_cbci FORTRAN_NAME(nekp4est_cbci,NEKP4EST_CBCI)
 
 /** Data type for user variables; required by p4est */
 typedef struct
@@ -59,7 +79,9 @@ typedef struct
 	>0 - curved external face; keeps the curvature group; correct on refinement */
 	char cbc[N_PSCL+2][6][3]; /**< boundary condition data */
 	double bc[N_PSCL+2][6][5];
+	/* @{ */
 	double x[P4EST_CHILDREN],y[P4EST_CHILDREN],z[P4EST_CHILDREN]; /**< vertices of the element */
+	/* @} */
 	int ref_mark; /**< integer to store refinement mark; 0 - nothing, 1 - refine, -1 coarsen */
 	// to keep track of changes of nek5000 global element numbering
 	int gln_el; /**< old element global numbering; nek5000 side */
@@ -210,8 +232,13 @@ void fp4est_lnodes_new(int ldgr);
 /** Destroy global node numberring */
 void fp4est_lnodes_del();
 
-/** Forest partitioning for p4est */
-void fp4est_part();
+/** Forest partitioning for p4est
+ *
+ * @param partforcoarsen   partitioning strategy:
+ * 0 - equal element count
+ * 1 - octants families prepared for coarsening
+ */
+void fp4est_part(int * partforcoarsen);
 
 
 /* place for refinement, coarsening and balancing */
@@ -231,5 +258,27 @@ void fp4est_vtk_write(char * filename, int len_f);
  * @param len_f
  */
 void fp4est_vtk_iscalar(int * iscalar,int *num,char * filename, int len_f);
+
+/** Get mesh size information to Nek5000
+ *
+ * @param [out] nelgt   global element number
+ * @param [out] nelgit  element offset (number of elements on lower nid's)
+ * @param [out] nelt    number ov T-type elements
+ * @param [out] nelv    number ov V-type elements
+ * @param [out] maxl    current max level
+ */
+void fp4est_msh_get_size(int * nelgt,int * nelgit, int * nelt, int * nelv, int * maxl);
+
+/** Get mesh data to Nek5000
+ *
+ */
+void fp4est_msh_get_dat();
+
+/** Get global vertex numbering to Nek5000
+ *
+ * @param [out] lnelt   number of local elements
+ * @param [out] node    array with global vertex numbering
+ */
+void fp4est_msh_get_node(int * lnelt, int * node);
 
 #endif /* NEKP4EST_P4EST_FWRAP_H_ */

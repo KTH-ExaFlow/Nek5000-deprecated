@@ -1,10 +1,11 @@
-!> @brief set of tools for nekp4est
+!> @file nekp4est_tool.f
+!! @brief set of tools for nekp4est
 !! @author Adam Peplinski
 !! @date Feb 26, 2016
 !=======================================================================
 !> @brief Write log messages
-!! @parameter[in] priority  log priority
-!! @parameter[in] logs      log body
+!! @param[in] priority  log priority
+!! @param[in] logs      log body
       subroutine nekp4est_log(priority,logs)
       implicit none
 !     input variables
@@ -30,7 +31,7 @@
       end
 !=======================================================================
 !> @brief SC based abort function
-!! @parameter[in] logs      log body
+!! @param[in] logs      log body
       subroutine nekp4est_abort(logs)
       implicit none
 
@@ -42,8 +43,8 @@
       end
 !=======================================================================
 !> @brief SC based check abort function
-!! @parameter[in] ierr      error indicator
-!! @parameter[in] logs      log body
+!! @param[in] ierr      error indicator
+!! @param[in] logs      log body
       subroutine nekp4est_chk_abort(ierr,logs)
       implicit none
 

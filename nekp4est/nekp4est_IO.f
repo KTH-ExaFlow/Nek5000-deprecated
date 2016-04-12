@@ -1,47 +1,27 @@
-!> @brief set of I/O routines for nekp4est
+!> @file nekp4est_IO.f
+!! @brief set of I/O routines for nekp4est
 !! @author Adam Peplinski
 !! @date Mar 7, 2016
 !=======================================================================
-!> @brief Initialise files counters
-      subroutine IO_file_init()
-      implicit none
-
-!     keeep track of max iunit generated
-      integer IO_iunit_min, IO_iunit_max
-      common /IO_iunit/ IO_iunit_min, IO_iunit_max
-
-!     local variables
-      logical ifcall            ! first call
-      save ifcall
-      data ifcall /.TRUE./
-!-----------------------------------------------------------------------
-!     set initial IO_iunit_min/max
-      if (ifcall) then
-        ifcall = .FALSE.
-        IO_iunit_min = 200
-        IO_iunit_max = IO_iunit_min
-      endif
-
-      return
-      end
-!=======================================================================
 !> @brief Get free unit number
-!! @parameter[out] iunit     file unit
-!! @parameter[out] ierr      error mark
+!! @param[out] iunit     file unit
+!! @param[out] ierr      error mark
       subroutine IO_file_freeid(iunit, ierr)
       implicit none
 
 !     argument list
       integer iunit
       integer ierr
+
 !     keeep track of max iunit generated
       integer IO_iunit_min, IO_iunit_max
       common /IO_iunit/ IO_iunit_min, IO_iunit_max
+
 !     local variables
       logical ifcnnd            ! is unit connected
 !-----------------------------------------------------------------------
+!     initialise variables
       ierr=0
-!     to not interact with the whole nek5000 I/O
       iunit = IO_iunit_min
 
       do
@@ -83,38 +63,36 @@
 !     mfo_open_files, mfo_outfld from prepost.f;
 !     mfi from ic.f
 !=======================================================================
-!> @brief Generate name according to nek rulles
-!! @parameter[out]  fname     file name
-!! @parameter[in]   prefix    prefix
-!! @parameter[in]   bname     basename
-      subroutine IO_mfo_fname(fname,bname,prefix)
+!> @brief Generate file name according to nek rulles
+!! @param[out]  fname     file name
+!! @param[in]   bname     base name
+!! @param[in]   prefix    prefix
+!! @param[out]  ierr      error mark
+      subroutine IO_mfo_fname(fname,bname,prefix,ierr)
       implicit none
 
       include 'SIZE_DEF'
       include 'SIZE'
       include 'INPUT_DEF'
-      include 'INPUT'
-      include 'PARALLEL_DEF'
-      include 'PARALLEL'
+      include 'INPUT'           ! IFREGUO
       include 'RESTART_DEF'
-      include 'RESTART'
+      include 'RESTART'         ! NFILEO
 
 !     argument list
       character*132  fname, bname
       character*3 prefix
+      integer ierr
 
 !     local variables
-      integer ndigit
+      integer ndigit, itmp
       real rfileo
 
       character*6  six
       save         six
       data         six / "??????" /
-
-      character*1 slash,dot
-      save        slash,dot
-      data        slash,dot  / '/' , '.' /
 !-----------------------------------------------------------------------
+!     initialise variables
+      ierr = 0
       fname = ''
 
 !     numbe or IO nodes
@@ -126,16 +104,30 @@
       ndigit = log10(rfileo) + 1
 
 !     Add directory
-      if (ifdiro) fname = 'A'//six(1:ndigit)//slash
+      if (ifdiro) fname = 'A'//six(1:ndigit)//'/'
 
 !     Add prefix
       if (prefix(1:1).ne.' '.and.prefix(2:2).ne.' '
-     $    .and.prefix(3:3).ne.' ') fname = trim(fname)//trim(prefix)
+     $    .and.prefix(3:3).ne.' ')
+     $ fname = trim(fname)//trim(adjustl(prefix))
 
 !     Add SESSION
       fname = trim(fname)//trim(bname)
 
       if (ifreguo) fname = trim(fname)//'_reg'
+
+!     test string length
+      itmp = len_trim(fname)
+      if (itmp.eq.0) then
+         write(*,*) 'ERROR: IO_mfo_fname; zero lenght fname.'
+         ierr = 1
+         return
+      elseif ((itmp+ndigit+2+5).gt.132) then
+         write(*,*) 'ERROR: IO_mfo_fname; fname too long.'
+         write(*,*) 'Fname: ',trim(fname)
+         ierr = 1
+         return
+      endif
 
       !  Add file-id holder and .f appendix
       fname = trim(fname)//six(1:ndigit)//'.f'
@@ -144,9 +136,9 @@
       end
 !=======================================================================
 !> @brief Write current mesh data (GLL points) to the file
-!! @parameter[in]   prefix    prefix
-!! @parameter[in]   fnumber   file number
-      subroutine nekp4est_mfo(prefix, fnumber)  ! muti-file output
+!! @param[in]   prefix    prefix
+!! @param[in]   fnumber   file number
+      subroutine nekp4est_mfo(prefix, fnumber)
       implicit none
 
       include 'SIZE_DEF'
@@ -217,11 +209,13 @@
       ierr = 0
       if (NID.eq.PID0) then         ! open files on i/o nodes
 !     create file name
-         call IO_mfo_fname(fname,SESSION,prefix)
+         call IO_mfo_fname(fname,SESSION,prefix,ierr)
 !     file number
-         write(str,'(i5.5)') fnumber
-         fname = trim(fname)//trim(str)
-         call mbyte_open(fname,fid0,ierr)
+         if (ierr.eq.0) then
+            write(str,'(i5.5)') fnumber
+            fname = trim(fname)//trim(str)
+            call mbyte_open(fname,fid0,ierr)
+         endif
       endif
 
       call err_chk(ierr,'Error opening file in nekp4est_mfo. Abort. $')
@@ -281,8 +275,8 @@
       end
 !=======================================================================
 !> @brief Read current mesh data (GLL points) from the file
-!! @parameter[in]   prefix    prefix
-!! @parameter[in]   fnumber   file number
+!! @param[in]   prefix    prefix
+!! @param[in]   fnumber   file number
       subroutine nekp4est_mfi(prefix, fnumber)
       implicit none
 
@@ -329,7 +323,8 @@
       tiostart=dnekclock()
 
 !     create file name
-      call IO_mfo_fname(fname,SESSION,prefix)
+      call IO_mfo_fname(fname,SESSION,prefix,ierr)
+      call err_chk(ierr,'Error opening file, in nekp4est_mfi.$')
 !     file number
       write(str,'(i5.5)') fnumber
       fname = trim(fname)//trim(str)

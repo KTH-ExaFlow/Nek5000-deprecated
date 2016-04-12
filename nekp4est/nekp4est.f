@@ -1,9 +1,10 @@
-!> @brief Main interface for nekp4est
+!> @file nekp4est.f
+!! @brief Main interface for nekp4est
 !! @author Adam Peplinski
 !! @date Feb 26, 2016
 !=======================================================================
 !> @brief Initialisation of sc and p4est libraries
-!! @parameter[in] intracomm mpi communicator
+!! @param[in] intracomm mpi communicator
       subroutine nekp4est_init(intracomm)
       implicit none
 
