@@ -1,4 +1,5 @@
 !> @file nekp4est_IO.f
+!! @ingroup nekp4est
 !! @brief set of I/O routines for nekp4est
 !! @author Adam Peplinski
 !! @date Mar 7, 2016
@@ -6,7 +7,8 @@
 !> @brief Get free unit number
 !! @param[out] iunit     file unit
 !! @param[out] ierr      error mark
-      subroutine IO_file_freeid(iunit, ierr)
+!! @note Identical routine in Nek_framework/io/io_tools/io_tools.f
+      subroutine io_file_freeid(iunit, ierr)
       implicit none
 
 !     argument list
@@ -14,15 +16,15 @@
       integer ierr
 
 !     keeep track of max iunit generated
-      integer IO_iunit_min, IO_iunit_max
-      common /IO_iunit/ IO_iunit_min, IO_iunit_max
+      integer io_iunit_min, io_iunit_max
+      common /io_iunit/ io_iunit_min, io_iunit_max
 
 !     local variables
       logical ifcnnd            ! is unit connected
 !-----------------------------------------------------------------------
 !     initialise variables
       ierr=0
-      iunit = IO_iunit_min
+      iunit = io_iunit_min
 
       do
          inquire(unit=iunit,opened=ifcnnd,iostat=ierr)
@@ -33,27 +35,29 @@
          endif
       enddo
 
-      if (iunit.gt.IO_iunit_max) IO_iunit_max = iunit
+      if (iunit.gt.io_iunit_max) io_iunit_max = iunit
 
       return
       end
 !=======================================================================
 !> @brief Close opened files
-      subroutine IO_file_close()
+!! @note Identical routine in Nek_framework/io/io_tools/io_tools.f
+      subroutine io_file_close()
       implicit none
 
 !     keeep track of max iunit generated
-      integer IO_iunit_min, IO_iunit_max
-      common /IO_iunit/ IO_iunit_min, IO_iunit_max
+      integer io_iunit_min, io_iunit_max
+      common /io_iunit/ io_iunit_min, io_iunit_max
 
 !     local variables
       integer iunit, ierr
       logical ifcnnd            ! is unit connected
 !-----------------------------------------------------------------------
-      do iunit = IO_iunit_min, IO_iunit_max
+      do iunit = io_iunit_min, io_iunit_max
          inquire(unit=iunit,opened=ifcnnd,iostat=ierr)
          if(ifcnnd) close(iunit)
       enddo
+      io_iunit_max = io_iunit_min
 
       return
       end
@@ -68,7 +72,8 @@
 !! @param[in]   bname     base name
 !! @param[in]   prefix    prefix
 !! @param[out]  ierr      error mark
-      subroutine IO_mfo_fname(fname,bname,prefix,ierr)
+!! @note Identical routine in Nek_framework/io/io_tools/io_tools.f
+      subroutine io_mfo_fname(fname,bname,prefix,ierr)
       implicit none
 
       include 'SIZE_DEF'
@@ -109,21 +114,21 @@
 !     Add prefix
       if (prefix(1:1).ne.' '.and.prefix(2:2).ne.' '
      $    .and.prefix(3:3).ne.' ')
-     $ fname = trim(fname)//trim(adjustl(prefix))
+     $     fname = trim(fname)//trim(adjustl(prefix))
 
 !     Add SESSION
-      fname = trim(fname)//trim(bname)
+      fname = trim(fname)//trim(adjustl(bname))
 
       if (ifreguo) fname = trim(fname)//'_reg'
 
 !     test string length
       itmp = len_trim(fname)
       if (itmp.eq.0) then
-         write(*,*) 'ERROR: IO_mfo_fname; zero lenght fname.'
+         write(*,*) 'ERROR: io_mfo_fname; zero lenght fname.'
          ierr = 1
          return
       elseif ((itmp+ndigit+2+5).gt.132) then
-         write(*,*) 'ERROR: IO_mfo_fname; fname too long.'
+         write(*,*) 'ERROR: io_mfo_fname; fname too long.'
          write(*,*) 'Fname: ',trim(fname)
          ierr = 1
          return
@@ -209,7 +214,7 @@
       ierr = 0
       if (NID.eq.PID0) then         ! open files on i/o nodes
 !     create file name
-         call IO_mfo_fname(fname,SESSION,prefix,ierr)
+         call io_mfo_fname(fname,SESSION,prefix,ierr)
 !     file number
          if (ierr.eq.0) then
             write(str,'(i5.5)') fnumber
@@ -277,6 +282,7 @@
 !> @brief Read current mesh data (GLL points) from the file
 !! @param[in]   prefix    prefix
 !! @param[in]   fnumber   file number
+!! @remarks This routine uses global scratch space SCRNS
       subroutine nekp4est_mfi(prefix, fnumber)
       implicit none
 
@@ -323,7 +329,7 @@
       tiostart=dnekclock()
 
 !     create file name
-      call IO_mfo_fname(fname,SESSION,prefix,ierr)
+      call io_mfo_fname(fname,SESSION,prefix,ierr)
       call err_chk(ierr,'Error opening file, in nekp4est_mfi.$')
 !     file number
       write(str,'(i5.5)') fnumber

@@ -1,4 +1,5 @@
 !> @file nekp4est.f
+!! @ingroup nekp4est
 !! @brief Main interface for nekp4est
 !! @author Adam Peplinski
 !! @date Feb 26, 2016
@@ -14,12 +15,12 @@
       include 'INPUT'
       include 'NEKP4EST'
 
-!     input parameters
+!     argument list
       integer intracomm
 
 !     local variables
 !     simple timing
-      real t1, t2, tmp
+      real t1, tmp
 
 !     functions
       real dnekclock
@@ -95,8 +96,7 @@
       NP4_IFRESET = .FALSE.
 
 !     simple timing
-      t2 = dnekclock()
-      tmp = t2 - t1
+      tmp = dnekclock() - t1
 !     total
       NP4_TC = NP4_TC + tmp
 !     initialisation
@@ -118,13 +118,10 @@
 
 !     local variables
 !     file name
-      integer ls
       character*132 filename
-      character filename1(132)
-      equivalence (filename,filename1)
 
 !     simple timing
-      real t1, t2, tmp
+      real t1, tmp
 
 !     functions
       integer ltrunc
@@ -134,11 +131,13 @@
       t1 = dnekclock()
 
 !     prepare file name
-      call blank(filename,132)
-      ls = ltrunc(session,132)
-      call chcopy(filename1(1),session,ls)
-      call chcopy(filename1(ls+1),'_end.tree',9)
-      call chcopy(filename1(ls+10),CHAR(0),1)
+      filename = trim(adjustl(SESSION))
+      if (len_trim(filename).gt.120) then
+         if(NIO.eq.0) write(*,*)
+     $      'ERROR: nekp4est_end; too long output file name'
+         call exitt
+      endif
+      filename = filename//'_end.tree'//CHAR(0)
 
 !     save current tree structure
       call nekp4est_log(NP4_LP_PRD,'Saving forest data.')
@@ -165,8 +164,7 @@
       call fsc_finalize()
 
 !     simple timing
-      t2 = dnekclock()
-      tmp = t2 - t1
+      tmp = dnekclock() - t1
 !     total
       NP4_TC = NP4_TC + tmp
 !     finalisation

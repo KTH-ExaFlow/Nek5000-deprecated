@@ -1,4 +1,5 @@
 !> @file nekp4est_callb.f
+!! @ingroup nekp4est
 !! @brief Callback subroutines required by p4est wrapper
 !! @author Adam Peplinski
 !! @date Apr 1, 2016
