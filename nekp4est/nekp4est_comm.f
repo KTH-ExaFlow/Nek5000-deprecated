@@ -860,7 +860,7 @@
 !! @param[in] rsw     array size
 !! @param[in] lbuff   array size
 !! @remarks This routine uses global scratch space SCRUZ
-      subroutine nekp4est_v_transfer(vr,rsw, lbuff)
+      subroutine nekp4est_vec_transfer(vr,rsw, lbuff)
       implicit none
 
       include 'SIZE_DEF'

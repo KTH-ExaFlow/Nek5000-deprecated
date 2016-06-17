@@ -112,7 +112,7 @@ ifeq ($(IFP4EST),true)
   P4ESTNEK:=$(S)/nekp4est
   P4ESTNEK_INCLUDES:=-I$(P4ESTNEK) -I$(P4ESTNEK)/DEF
   P4ESTO := sc_fwrap.o p4est_fwrap.o nekp4est.o nekp4est_tool.o nekp4est_IO.o \
-  nekp4est_IO_block.o nekp4est_callb.o nekp4est_comm.o
+  nekp4est_IO_block.o nekp4est_callb.o nekp4est_comm.o nekp4est_refine.o
   lFLAGS := ${lFLAGS} $(P4EST_LFLAGS)
 endif
 
@@ -333,6 +333,7 @@ $(OBJDIR)/nekp4est_IO.o       :$(P4ESTNEK)/nekp4est_IO.f;       $(F77) -c $(FL2)
 $(OBJDIR)/nekp4est_IO_block.o :$(P4ESTNEK)/nekp4est_IO_block.f; $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
 $(OBJDIR)/nekp4est_callb.o    :$(P4ESTNEK)/nekp4est_callb.f;    $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
 $(OBJDIR)/nekp4est_comm.o     :$(P4ESTNEK)/nekp4est_comm.f;     $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
+$(OBJDIR)/nekp4est_refine.o   :$(P4ESTNEK)/nekp4est_refine.f;   $(F77) -c $(FL2) $(P4ESTNEK_INCLUDES) $< -o $@
 
 # nekpmetis #######################################################################################
 $(OBJDIR)/pmetis_fwrap.o   :$(PMETISNEK)/pmetis_fwrap.c;   $(CC) -c $(cFL2) $(PMETIS_IFLAGS) -I$J $(PMETISNEK_INCLUDES) $< -o $@
