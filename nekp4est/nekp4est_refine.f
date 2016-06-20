@@ -823,7 +823,83 @@
       return
       end
 !=======================================================================
+!> @brief Perform all refinement operations for given variable
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe all block refinemnts for a single variable.
+!! @param[inout] vcf     refined vector
+!! @param[in]    limesh   mesh mark (velocity, preasure, mhd)
+!! @param[in]    tmp     work array tmp(lnx,lny,lnz,3)
+!! @param[in]    lnx     element size (x)
+!! @param[in]    lny     element size (y)
+!! @param[in]    lnz     element size (z)
+!! @param[in]    leln    element count
+      subroutine nekp4est_refine_vm(vcf,limesh,tmp,lnx,lny,lnz,leln)
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
+
+!     argument list
+      integer lnx,lny,lnz,leln
+      real vcf(lnx,lny,lnz,leln)
+      integer limesh
+      real tmp(lnx,lny,lnz,3) ! work array
+
+!     local variables
+      integer el_lst(NP4_NCHILD)   ! local element list for refinement
+      integer il, jl ! loop index
+!-----------------------------------------------------------------------
+      do il=0,NP4_RFN_NR-1,NP4_NCHILD
+        do jl=1,NP4_NCHILD
+            el_lst(jl) = NP4_GLGL_RFN(3,il+jl)
+        enddo
+        call nekp4est_refine_vs(vcf,el_lst,limesh,tmp,lnx,lny,lnz,leln)
+      enddo
+
+      return
+      end
+!=======================================================================
+!> @brief Perform all coarsening operations for given variable
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe all block coarsenings for a single variable.
+!! @param[inout] vfc       coarsened vector
+!! @param[in]    limesh   mesh mark (velocity, preasure, mhd)
+!! @param[in]    tmp     work array tmp(lnx,lny,lnz,3)
+!! @param[in]    lnx     element size (x)
+!! @param[in]    lny     element size (y)
+!! @param[in]    lnz     element size (z)
+!! @param[in]    leln    element count
+      subroutine nekp4est_coarse_vm(vfc,limesh,tmp,
+     $           lnx,lny,lnz,leln)
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
+      include 'NEKP4EST_REFINE'
+
+!     argument list
+      integer lnx,lny,lnz,leln
+      real vfc(lnx,lny,lnz,leln)
+      integer limesh
+      real tmp(lnx,lny,lnz,3) ! work array
+
+!     local variables
+      integer el_lst(NP4_NCHILD)   ! local element list for refinement
+      integer il, jl ! loop index
+!-----------------------------------------------------------------------
+      do il=1,NP4_CRS_NR
+        do jl=1,NP4_NCHILD
+            el_lst(jl) = NP4_GLGL_CRS(2,jl,il)
+        enddo
+        call nekp4est_coarse_vs(vfc,el_lst,limesh,tmp,lnx,lny,lnz,leln)
+      enddo
+
+      return
+      end
+!=======================================================================
 !> @brief Perform single refinement operation on set of variables
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe single block refinement for all variables.
 !! @param[in]    el_lst    element list
       subroutine nekp4est_refine_el(el_lst)
       implicit none
@@ -1025,6 +1101,8 @@
       end
 !=======================================================================
 !> @brief Perform single coarsening operation on set of variables
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe single block coarsening for all variables.
 !! @param[in]    el_lst    element list
       subroutine nekp4est_coarse_el(el_lst)
       implicit none
@@ -1054,7 +1132,7 @@
 !     is the firs element a correct one
 !     I assume el_lst(1) is an existing parent
       if (el_lst(1).gt.NELT) call nekp4est_abort
-     $     ('Error: nekp4est_coarsen_el el_lst>NELT')
+     $     ('Error: nekp4est_coarse_el el_lst>NELT')
 
 !     coarsen variables
 !     coordinates; mesh 1
@@ -1222,7 +1300,11 @@
       end
 !=======================================================================
 !> @brief Local refinement
-      subroutine nekp4est_refine_local()
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe single block refinement for all variables implemented in
+!! nekp4est_refine_el and next turn to the next refinement block. This
+!! version gives more possibility for error check.
+      subroutine nekp4est_refine_local_el
       implicit none
       include 'SIZE_DEF'
       include 'SIZE'
@@ -1244,7 +1326,11 @@
       end
 !=======================================================================
 !> @brief Local corsening
-      subroutine nekp4est_coarsen_local
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe single block coarsening for all variables implemented in
+!! nekp4est_coarse_el and next turn to the next coarsening block. This
+!! version gives more possibility for error check.
+      subroutine nekp4est_coarsen_local_el
       implicit none
       include 'SIZE_DEF'
       include 'SIZE'
@@ -1261,6 +1347,350 @@
         enddo
         call nekp4est_coarse_el(el_lst)
       enddo
+
+      return
+      end
+!=======================================================================
+!> @brief Local refinement
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe all block refinemnts for a single variable implemented in
+!! nekp4est_refine_vm and next turn to the variable. This version could
+!! be slightly faster.
+      subroutine nekp4est_refine_local_v
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'           ! IF3D
+      include 'SOLN_DEF'
+      include 'SOLN'
+      include 'TSTEP_DEF'
+      include 'TSTEP'           ! NBDINP
+      include 'GEOM_DEF'
+      include 'GEOM'            ! IFGEOM
+      include 'NEKP4EST'
+
+!     local variables
+      integer il, jl ! loop index
+      integer fs, fe
+      integer limesh  ! mesh mark (velocity, preasure, mhd)
+!     work arrays
+      real tmpv(LX1,LY1,LZ1,3), tmpvp(LX2,LY2,LZ2,3),
+     $     tmpb(LBX1,LBY1,LBZ1,3), tmpbp(LBX2,LBY2,LBZ2,3)
+!-----------------------------------------------------------------------
+      call nekp4est_log(NP4_LP_PRD,'Local data refinement.')
+
+!     refine variables
+!     coordinates; mesh 1
+      limesh = 1
+      call nekp4est_refine_vm(XM1,limesh,tmpv,LX1,LY1,LZ1,LELT)
+      call nekp4est_refine_vm(YM1,limesh,tmpv,LX1,LY1,LZ1,LELT)
+      if(IF3D) call nekp4est_refine_vm(ZM1,limesh,tmpv,LX1,LY1,LZ1,LELT)
+
+!     set every step by setprop in nek_advance
+!     interpolate density (VTRANS) and viscosity (VDIFF)
+!      fs = 2
+!      fe = NFIELD
+!      if (IFFLOW) fs = 1
+!      if (IFMHD) fe = fe + 1
+!      do il=fs, fe
+!         call nekp4est_refine_vm(VDIFF (1,1,1,1,il),limesh,
+!     $                           tmpv,LX1,LY1,LZ1,LELT)
+!         call nekp4est_refine_vm(VTRANS(1,1,1,1,il),limesh,
+!     $                           tmpv,LX1,LY1,LZ1,LELT)
+!      enddo
+
+
+!     velocity
+      call nekp4est_refine_vm(VX,limesh,tmpv,LX1,LY1,LZ1,LELV)
+      call nekp4est_refine_vm(VY,limesh,tmpv,LX1,LY1,LZ1,LELV)
+      if(IF3D) call nekp4est_refine_vm(VZ,limesh,tmpv,LX1,LY1,LZ1,LELV)
+
+!     lag arrays velocity
+      if (IFFLOW.or.IFMHD) then
+         do il =1, NBDINP-1
+            call nekp4est_refine_vm(VXLAG(1,1,1,1,il),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELV)
+            call nekp4est_refine_vm(VYLAG(1,1,1,1,il),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELV)
+            if (IF3D) call nekp4est_refine_vm(VZLAG(1,1,1,1,il),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELV)
+         enddo
+      endif
+
+!     arrays for time integration
+      if (IFTRAN) then
+         call nekp4est_refine_vm(ABX1,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         call nekp4est_refine_vm(ABY1,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         if(IF3D) call nekp4est_refine_vm(ABZ1,limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+
+         call nekp4est_refine_vm(ABX2,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         call nekp4est_refine_vm(ABY2,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         if(IF3D) call nekp4est_refine_vm(ABZ2,limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+      endif
+
+!     mesh 2
+      limesh = 2
+!     preasure
+      call nekp4est_refine_vm(PR,limesh,tmpvp,LX2,LY2,LZ2,LELV)
+
+!     lag arrays preasure PRLAG
+      if (NBDINP.eq.3) call nekp4est_refine_vm(PRLAG,limesh,tmpvp,
+     $              LX2,LY2,LZ2,LELV)
+
+!     mesh 2
+      limesh = 2
+!     user defined divergence USRDIV
+      call nekp4est_refine_vm(USRDIV,limesh,tmpvp,LX2,LY2,LZ2,LELT)
+
+!     temperature and passive scalars
+!     mesh 1
+      limesh = 1
+      if (IFHEAT) then
+!     varialbe T; temperature nad passive scalars
+         do il=2,NFIELD
+            call nekp4est_refine_vm(T(1,1,1,1,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+
+!     lag arrays TLAG
+            do jl =1, NBDINP-1
+               call nekp4est_refine_vm(TLAG(1,1,1,1,jl,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+            enddo
+
+!     arrays time integration VGRADT[12]
+            call nekp4est_refine_vm(VGRADT1(1,1,1,1,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+            call nekp4est_refine_vm(VGRADT2(1,1,1,1,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+         enddo                  ! passive scalar loop
+      endif                     ! IFHEAT
+
+!     mhd
+!     NOT TESTED AND NOT SURE IT IS OK!!!!!!!!!!!!!!!!
+      if (IFMHD) then
+!     mesh 3
+         limesh = 3
+!     magnetic field
+         call nekp4est_refine_vm(BX,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_refine_vm(BY,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_refine_vm(BZ,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+!     arrays for time integration
+         call nekp4est_refine_vm(BBX1,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_refine_vm(BBY1,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_refine_vm(BBZ1,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+         call nekp4est_refine_vm(BBX2,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_refine_vm(BBY2,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_refine_vm(BBZ2,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+!     lag arrays
+         do il =1, NBDINP-1
+            call nekp4est_refine_vm(BXLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+            call nekp4est_refine_vm(BYLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+            if (IF3D) call nekp4est_refine_vm(BZLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+         enddo
+
+!     mesh 4
+         limesh = 4
+         call nekp4est_refine_vm(PM,limesh,tmpbp,LBX2,LBY2,LBZ2,LBELV)
+
+!     lag arrays
+         if (NBDINP.eq.3) call nekp4est_refine_vm(PMLAG,limesh,tmpbp,
+     $              LBX2,LBY2,LBZ2,LBELV)
+
+      endif
+
+!     moving mesh; BM1LAG
+      if (IFGEOM) then
+         call nekp4est_abort
+     $     ('Error: nekp4est_refine_local_v no moving mesh yet.')
+      endif
+
+!     it could be place for perturbation, but interpolation would not
+!     give correct base flow structure, so I skip it for now
+
+
+      return
+      end
+!=======================================================================
+!> @brief Local corsening
+!! @details Threre are two possible implementations. In following rourtine
+!! we performe all block coarsening for a single variable implemented in
+!! nekp4est_coarse_vm and next turn to the variable. This version could
+!! be slightly faster.
+      subroutine nekp4est_coarsen_local_v
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'           ! IF3D
+      include 'SOLN_DEF'
+      include 'SOLN'
+      include 'TSTEP_DEF'
+      include 'TSTEP'           ! NBDINP
+      include 'GEOM_DEF'
+      include 'GEOM'            ! IFGEOM
+      include 'NEKP4EST'
+
+!     local variables
+      integer il, jl ! loop index
+      integer fs, fe
+      integer limesh  ! mesh mark (velocity, preasure, mhd)
+!     work arrays
+      real tmpv(LX1,LY1,LZ1,3), tmpvp(LX2,LY2,LZ2,3),
+     $     tmpb(LBX1,LBY1,LBZ1,3), tmpbp(LBX2,LBY2,LBZ2,3)
+!-----------------------------------------------------------------------
+      call nekp4est_log(NP4_LP_PRD,'Local data coarsening.')
+
+!     coarsen variables
+!     coordinates; mesh 1
+      limesh = 1
+      call nekp4est_coarse_vm(XM1,limesh,tmpv,LX1,LY1,LZ1,LELT)
+      call nekp4est_coarse_vm(YM1,limesh,tmpv,LX1,LY1,LZ1,LELT)
+      if(IF3D) call nekp4est_coarse_vm(ZM1,limesh,tmpv,
+     $              LX1,LY1,LZ1,LELT)
+
+!     set every step by setprop in nek_advance
+!     interpolate density (VTRANS) and viscosity (VDIFF)
+!      fs = 2
+!      fe = NFIELD
+!      if (IFFLOW) fs = 1
+!      if (IFMHD) fe = fe + 1
+!      do il=fs, fe
+!         call nekp4est_coarse_vm(VDIFF (1,1,1,1,il),limesh,
+!     $                           tmpv,LX1,LY1,LZ1,LELT)
+!         call nekp4est_coarse_vm(VTRANS(1,1,1,1,il),limesh,
+!     $                           tmpv,LX1,LY1,LZ1,LELT)
+!      enddo
+
+!     velocity
+      call nekp4est_coarse_vm(VX,limesh,tmpv,LX1,LY1,LZ1,LELV)
+      call nekp4est_coarse_vm(VY,limesh,tmpv,LX1,LY1,LZ1,LELV)
+      if(IF3D) call nekp4est_coarse_vm(VZ,limesh,tmpv,LX1,LY1,LZ1,LELV)
+
+!     lag arrays velocity
+      if (IFFLOW.or.IFMHD) then
+         do il =1, NBDINP-1
+            call nekp4est_coarse_vm(VXLAG(1,1,1,1,il),limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+            call nekp4est_coarse_vm(VYLAG(1,1,1,1,il),limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+            if (IF3D) call nekp4est_coarse_vm(VZLAG(1,1,1,1,il),
+     $              limesh,tmpv,LX1,LY1,LZ1,LELV)
+         enddo
+      endif
+
+!     arrays for time integration
+      if (IFTRAN) then
+         call nekp4est_coarse_vm(ABX1,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         call nekp4est_coarse_vm(ABY1,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         if(IF3D) call nekp4est_coarse_vm(ABZ1,limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+
+         call nekp4est_coarse_vm(ABX2,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         call nekp4est_coarse_vm(ABY2,limesh,tmpv,LX1,LY1,LZ1,LELV)
+         if(IF3D) call nekp4est_coarse_vm(ABZ2,limesh,tmpv,
+     $              LX1,LY1,LZ1,LELV)
+      endif
+
+!     mesh 2
+      limesh = 2
+!     preasure
+      call nekp4est_coarse_vm(PR,limesh,tmpvp,LX2,LY2,LZ2,LELV)
+
+!     lag arrays preasure PRLAG
+      if (NBDINP.eq.3) call nekp4est_coarse_vm(PRLAG,limesh,tmpvp,
+     $              LX2,LY2,LZ2,LELV)
+
+
+!     mesh 2
+      limesh = 2
+!     user defined divergence USRDIV
+      call nekp4est_coarse_vm(USRDIV,limesh,tmpvp,LX2,LY2,LZ2,LELT)
+
+!     temperature and passive scalars
+!     mesh 1
+      limesh = 1
+      if (IFHEAT) then
+!     varialbe T; temperature nad passive scalars
+         do il=2,NFIELD
+            call nekp4est_coarse_vm(T(1,1,1,1,il-1),limesh,tmpv,
+     $              LX1,LY1,LZ1,LELT)
+
+!     lag arrays TLAG
+            do jl =1, NBDINP-1
+               call nekp4est_coarse_vm(TLAG(1,1,1,1,jl,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+            enddo
+
+!     arrays time integration VGRADT[12]
+            call nekp4est_coarse_vm(VGRADT1(1,1,1,1,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+            call nekp4est_coarse_vm(VGRADT2(1,1,1,1,il-1),limesh,
+     $              tmpv,LX1,LY1,LZ1,LELT)
+         enddo                  ! passive scalar loop
+      endif                     ! IFHEAT
+
+!     mhd
+!     NOT TESTED AND NOT SURE IT IS OK!!!!!!!!!!!!!!!!
+      if (IFMHD) then
+!     mesh 3
+         limesh = 3
+!     magnetic field
+         call nekp4est_coarse_vm(BX,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_coarse_vm(BY,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_coarse_vm(BZ,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+!     arrays for time integration
+         call nekp4est_coarse_vm(BBX1,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_coarse_vm(BBY1,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_coarse_vm(BBZ1,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+         call nekp4est_coarse_vm(BBX2,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         call nekp4est_coarse_vm(BBY2,limesh,tmpb,LBX1,LBY1,LBZ1,LBELV)
+         if(IF3D) call nekp4est_coarse_vm(BBZ2,limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+
+!     lag arrays
+         do il =1, NBDINP-1
+            call nekp4est_coarse_vm(BXLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+            call nekp4est_coarse_vm(BYLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+            if (IF3D) call nekp4est_coarse_vm(BZLAG(1,il),limesh,tmpb,
+     $              LBX1,LBY1,LBZ1,LBELV)
+         enddo
+
+!     mesh 4
+         limesh = 4
+         call nekp4est_coarse_vm(PM,limesh,tmpbp,LBX2,LBY2,LBZ2,LBELV)
+
+!     lag arrays
+         if (NBDINP.eq.3) call nekp4est_coarse_vm(PMLAG,limesh,tmpbp,
+     $              LBX2,LBY2,LBZ2,LBELV)
+      endif
+
+!     moving mesh; BM1LAG
+      if (IFGEOM) then
+         call nekp4est_abort
+     $     ('Error: nekp4est_coarse_loca_v no moving mesh yet.')
+      endif
+
+!     it could be place for perturbation, but interpolation would not
+!     give correct base flow structure, so I skip it for now
+
 
       return
       end
