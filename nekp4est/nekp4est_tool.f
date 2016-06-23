@@ -9,10 +9,13 @@
 !! @param[in] logs      log body
       subroutine nekp4est_log(priority,logs)
       implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
 
 !     argument list
       integer priority
-      character*200 logs
+      character(len=NP4_LSTL_LOG) logs
 
 !     local variables
       integer pkg_id
@@ -38,9 +41,12 @@
 !! @param[in] logs      log body
       subroutine nekp4est_abort(logs)
       implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
 
 !     argument list
-      character*200 logs
+      character(len=NP4_LSTL_LOG) logs
 !-----------------------------------------------------------------------
       call fsc_abort(trim(logs)//CHAR(0))
       return
@@ -51,10 +57,13 @@
 !! @param[in] logs      log body
       subroutine nekp4est_chk_abort(ierr,logs)
       implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
 
 !     argument list
       integer ierr
-      character*200 logs
+      character(len=NP4_LSTL_LOG) logs
 !-----------------------------------------------------------------------
       call fsc_check_abort(ierr,trim(logs)//CHAR(0))
       return

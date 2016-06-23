@@ -20,6 +20,7 @@
       include 'NEKP4EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -56,7 +57,8 @@
       character*2 str
 #endif
 !-----------------------------------------------------------------------
-      call nekp4est_log(NP4_LP_PRD,'Redistributing forest data.')
+      logs = 'Redistributing forest data.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     take number of local p4est elements
       lnelt = NP4_NELT
@@ -115,8 +117,10 @@
      $     (cr_h,lnelt,LELT,vi,isw,vl,0,vr,rsw,2)
 
 !     test local element number
-      if (lnelt.ne.NELT)
-     $     call nekp4est_abort('Error: tree_transfer; lnelt /= nelt')
+      if (lnelt.ne.NELT) then
+         logs = 'Error: tree_transfer; lnelt /= nelt'
+         call nekp4est_abort(logs)
+      endif
 
 !     sort elements acording to their global number
       key(1) = 1
@@ -143,11 +147,15 @@
 #ifdef DEBUG
 !     check of back communication arrays; just for testing
 !     global element number
-         if (vi(1,eg).ne.LGLEL(eg)) call nekp4est_abort
-     $     ('Error: tree_transfer; back comm. err.; el')
+         if (vi(1,eg).ne.LGLEL(eg)) then
+            logs = 'Error: tree_transfer; back comm. err.; el'
+            call nekp4est_abort(logs)
+         endif
 !     origin processor id
-         if (vi(2,eg).ne.NP4_LGLNID(eg)) call nekp4est_abort
-     $     ('Error: tree_transfer; back comm. err.; nid')
+         if (vi(2,eg).ne.NP4_LGLNID(eg)) then
+            logs = 'Error: tree_transfer; back comm. err.; nid'
+            call nekp4est_abort(logs)
+         endif
 #endif
 
 !     B.C.
@@ -244,6 +252,7 @@
       include 'NEKP4EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -264,7 +273,8 @@
       integer key(1)            ! required by crystal rauter; for sorting
 !-----------------------------------------------------------------------
 !     redistribute integer refinement mark back to p4est element distribution
-      call nekp4est_log(NP4_LP_PRD,'Redistributing MARK array.')
+      logs = 'Redistributing MARK array.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     take number of local nek elements
       lnelt = NELT
@@ -286,8 +296,10 @@
      $     (cr_h,lnelt,LELT,vi,isw,vl,0,vr,0,2)
 
 !     test local element number
-      if (lnelt.ne.NP4_NELT) call nekp4est_abort
-     $     ('Error: mark_transfer; lnelt /= nelt')
+      if (lnelt.ne.NP4_NELT) then
+         logs = 'Error: mark_transfer; lnelt /= nelt'
+         call nekp4est_abort(logs)
+      endif
 
 !     sort elements acording to their global number
       key(1) = 1
@@ -301,11 +313,15 @@
 !     check of back communication arrays; just for testing
 !     global element number
         itmp = NP4_NELIT + eg
-        if (vi(1,eg).ne.itmp) call nekp4est_abort
-     $     ('Error: mark_transfer; back comm. err.; el')
+        if (vi(1,eg).ne.itmp) then
+           logs = 'Error: mark_transfer; back comm. err.; el'
+           call nekp4est_abort(logs)
+        endif
 !     origin processor id
-        if (vi(2,eg).ne.GLLNID(itmp)) call nekp4est_abort
-     $     ('Error: mark_transfer; back comm. err.; nid')
+        if (vi(2,eg).ne.GLLNID(itmp)) then
+           logs = 'Error: mark_transfer; back comm. err.; nid'
+           call nekp4est_abort(logs)
+        endif
 #endif
 
 !     mark array
@@ -331,6 +347,7 @@
       include 'NEKP4EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -362,7 +379,8 @@
       parameter (icalled_w=6)
 #endif
 !-----------------------------------------------------------------------
-      call nekp4est_log(NP4_LP_PRD,'Redistributing history MAP.')
+      logs = 'Redistributing history MAP.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     take number of local p4est elements
       lnelt = NP4_NELT
@@ -390,8 +408,10 @@
       enddo
 
 !     test local element number
-      if (jl.ne.NP4_MAP_NR) call nekp4est_abort
-     $     ('Error: map_transfer;wrong jl')
+      if (jl.ne.NP4_MAP_NR) then
+         logs = 'Error: map_transfer;wrong jl'
+         call nekp4est_abort(logs)
+      endif
 !     correct number of array entries
       lnelt = NP4_MAP_NR
 
@@ -405,8 +425,10 @@
 
       if(lnelt.gt.0) then
 !     test local element number
-        if (lnelt.gt.NP4_NELT_O) call nekp4est_abort
-     $         ('Error: map_transfer;wrong lnelt')
+        if (lnelt.gt.NP4_NELT_O) then
+           logs = 'Error: map_transfer;wrong lnelt'
+           call nekp4est_abort(logs)
+        endif
 
 !     sort elements acording to their global number
         key(1) = 1
@@ -461,6 +483,7 @@
       include 'NEKP4EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -492,7 +515,8 @@
       parameter (icalled_w=6)
 #endif
 !-----------------------------------------------------------------------
-      call nekp4est_log(NP4_LP_PRD,'Redistributing history RFN.')
+      logs = 'Redistributing history RFN.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     take number of local refined p4est elements
       lnelt = NP4_RFN_NR
@@ -522,8 +546,10 @@
       if (lnelt.gt.0) then
 
 !     test local element number; it must be multiplication of n_vrts
-        if (mod(lnelt,n_vrts).ne.0) call nekp4est_abort
-     $         ('Error: rfn_transfer;wrong lnelt')
+        if (mod(lnelt,n_vrts).ne.0) then
+           logs = 'Error: rfn_transfer;wrong lnelt'
+           call nekp4est_abort(logs)
+        endif
 
 !     sort elements acording to their global number
         key(1) = 1
@@ -543,8 +569,10 @@
 !     new global element number
                 NP4_GLGL_RFN(1,eg+itmp)  = vi(3,eg+jl)
 !     local parent position
-            if (itmp2.ne.NP4_GLLEL_O(vi(1,eg+jl))) call nekp4est_abort
-     $         ('Error: rfn_transfer; wrong parent number')
+                if (itmp2.ne.NP4_GLLEL_O(vi(1,eg+jl))) then
+                   logs = 'Error: rfn_transfer; wrong parent number'
+                   call nekp4est_abort(logs)
+                endif
                 NP4_GLGL_RFN(2,eg+itmp)  = itmp2
 !     local child position
                 if (itmp.eq.0) then
@@ -558,8 +586,10 @@
 
 !     check arrays size
         itmp=il
-        if (itmp.gt.LELT) call nekp4est_abort
-     $    ('Error: rfn_transfer; too many refined blocks')
+        if (itmp.gt.LELT) then
+           logs = 'Error: rfn_transfer; too many refined blocks'
+           call nekp4est_abort(logs)
+        endif
 
 !     fill map array
 !     first reset values from NP4_NELT_O+1 to itmp
@@ -574,8 +604,8 @@
                 NP4_GLGL_MAP(il) = NP4_GLGL_RFN(1,eg)
                 NP4_GLGL_MAP_NID(il) = GLLNID(NP4_GLGL_RFN(1,eg))
             else
-                call nekp4est_abort
-     $         ('Error: rfn_transfer;index allready used')
+                logs = 'Error: rfn_transfer;index allready used'
+                call nekp4est_abort(logs)
             endif
         enddo
       else
@@ -630,6 +660,7 @@
       include 'NEKP4EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -669,7 +700,8 @@
       parameter (icalled_w=6)
 #endif
 !-----------------------------------------------------------------------
-      call nekp4est_log(NP4_LP_PRD,'Redistributing history CRS.')
+      logs = 'Redistributing history CRS.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     first get tmp global numbering of all elements to be removed
 !     count number of elements on lower number processors
@@ -731,8 +763,8 @@
                     NP4_GLGL_MAP_NID(itmp) = vi(4,il)
                 endif
             else
-                call nekp4est_abort
-     $         ('Error: crs_transfer;index allready used')
+                logs = 'Error: crs_transfer;index allready used'
+                call nekp4est_abort(logs)
             endif
         enddo
       endif
@@ -770,8 +802,10 @@
       if (lnelt.gt.0) then
 
 !     test local element number; it must be multiplication of n_vrts
-        if (mod(lnelt,n_vrts).ne.0) call nekp4est_abort
-     $         ('Error: crs_transfer;wrong lnelt')
+        if (mod(lnelt,n_vrts).ne.0) then
+           logs = 'Error: crs_transfer;wrong lnelt'
+           call nekp4est_abort(logs)
+        endif
 
 !     sort elements acording to their global number
         key(1) = 1
@@ -788,9 +822,10 @@
             itmp3 = il
             do jl=1,n_vrts
 !     local parent position
-                if (itmp.ne.GLLEL(vi(1,kl+jl)))
-     $          call nekp4est_abort
-     $          ('Error: crs_transfer; wrong parent number')
+                if (itmp.ne.GLLEL(vi(1,kl+jl))) then
+                   logs = 'Error: crs_transfer; wrong parent number'
+                   call nekp4est_abort(logs)
+                endif
 
 !     which child
                 itmp2 = vi(4,kl+jl)
@@ -809,8 +844,10 @@
 
 !     check arrays size
         itmp=il
-        if (itmp.gt.LELT) call nekp4est_abort
-     $    ('Error: crs_transfer; too many refined blocks')
+        if (itmp.gt.LELT) then
+           logs = 'Error: crs_transfer; too many refined blocks'
+           call nekp4est_abort(logs)
+        endif
 
         lnelt = lnelt/n_vrts
 
@@ -820,8 +857,10 @@
 
 !     check if there are still some zeros in MAP
       do eg=1,NP4_RFN_NR_S
-        if (NP4_GLGL_MAP(eg).eq.0) call nekp4est_abort
-     $    ('Error: crs_transfer; inconsistent MAP')
+        if (NP4_GLGL_MAP(eg).eq.0) then
+           logs = 'Error: crs_transfer; inconsistent MAP'
+           call nekp4est_abort(logs)
+        endif
       enddo
 
 #ifdef DEBUG
@@ -877,6 +916,8 @@
       integer rsw, lbuff
       real vr(rsw,lbuff)
 
+!     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !     face and vertex number
       integer n_fcs, n_vrts
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
@@ -912,8 +953,10 @@
      $     (cr_h,lnelt,eg,vi,isw,vl,0,vr,rsw,2)
 
 !     test local element number
-      if (lnelt.ne.(NELT+NP4_CRS_NR*(n_vrts-1))) call nekp4est_abort
-     $     ('Error: v1_transfer; lnelt /= nelt'//CHAR(0))
+      if (lnelt.ne.(NELT+NP4_CRS_NR*(n_vrts-1))) then
+         logs = 'Error: v1_transfer; lnelt /= nelt'
+         call nekp4est_abort(logs)
+      endif
 
 !     sort elements acording to their global number
       key(1) = 1

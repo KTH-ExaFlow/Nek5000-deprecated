@@ -75,8 +75,9 @@
       parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
 
 !     argument list
+      character(len=NP4_LSTL_LOG) logs  ! log string
       integer lnel, gnel, imsh, igrp, level
-      character*3  cbcl (6,0:LDIMT1)
+      character(len=3) cbcl (6,0:LDIMT1)
       real*8       bcl  (5,6,0:LDIMT1)
       integer      crvl(6)
 
@@ -84,17 +85,23 @@
       integer i, j, k
 !-----------------------------------------------------------------------
 !     count local number of elements and check wether tree is sorted
-      if (lnel.ne.EL_COUNT) 
-     $     call nekp4est_abort('ERROR: unsorted tree.')
+      if (lnel.ne.EL_COUNT) then
+         logs = 'ERROR: unsorted tree.'
+         call nekp4est_abort(logs)
+      endif
       EL_COUNT = EL_COUNT +1
 
 !     check correctness of global element numberring
-      if ((gnel-lnel).ne.NP4_NELIT)
-     $     call nekp4est_abort('ERROR: global numberring.')
+      if ((gnel-lnel).ne.NP4_NELIT) then
+         logs = 'ERROR: global numberring.'
+         call nekp4est_abort(logs)
+      endif
 
 !     is it V or T mesh
-      if (imsh.eq.0.and.gnel.gt.NELGV)
-     $     call nekp4est_abort('ERROR: V, T mesh missmatch.')
+      if (imsh.eq.0.and.gnel.gt.NELGV) then
+      logs = 'ERROR: V, T mesh missmatch.'
+         call nekp4est_abort(logs)
+      endif
 
 !     take element data
 !     element group
@@ -211,6 +218,7 @@
 
 !     local variables
       integer itmp
+      character(len=NP4_LSTL_LOG) logs  ! log string
 !-----------------------------------------------------------------------
 !     move mark array to p4est
 !     global to local element number
@@ -220,8 +228,8 @@
         mark = NP4_MARK(itmp)
 !     wrong element number
       else
-        call nekp4est_abort
-     $     ('Error: nek_refine_mark; wrong element num.')
+        logs = 'Error: nek_refine_mark; wrong element num.'
+        call nekp4est_abort(logs)
       endif
 
       return

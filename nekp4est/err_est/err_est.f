@@ -23,6 +23,7 @@
       include 'TSTEP'
       include 'PARALLEL_DEF'
       include 'PARALLEL'
+      include 'NEKP4EST'
       include 'ERR_EST'
 
 !     for tests with advected cone
@@ -34,6 +35,7 @@
       integer ref_level(LELT)
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl, kl, ll ! loop index
 
 !     min and max values of error estimator
@@ -66,7 +68,8 @@
 !     functions
       real glmax, glmin
 !-----------------------------------------------------------------------
-      call nekp4est_log(6,'Get error estimate.')
+      logs = 'Get error estimate.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     reset refinement mark
       call izero(ref_mark,LELT)
@@ -305,13 +308,16 @@
       include 'SIZE'
       include 'INPUT_DEF'
       include 'INPUT'
+      include 'NEKP4EST'
       include 'ERR_EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl
 !-----------------------------------------------------------------------
 !     stamp logs
-      call nekp4est_log(6,'Error est start.')
+      logs = 'Error est start.'
+      call nekp4est_log(NP4_LP_PRD,logs)
 
 !     set cutoff parameters
 !     used for values
@@ -335,15 +341,15 @@
 
 !     correctness check
       if (EEST_NP.gt.EEST_NP_MAX) then
-         if (NIO.eq.0) write(*,*) 'EEST_NP greater than EEST_NP_MAX.'
-         call exitt
+         logs = 'EEST_NP greater than EEST_NP_MAX.'
+         call nekp4est_abort(logs)
       endif
       il = EEST_NP+EEST_ELR
       jl = min(LX1,LY1)
       if (IF3D) jl = min(jl,LZ1)
       if (il.gt.jl) then
-         if (NIO.eq.0) write(*,*) 'EEST_NP+EEST_ELR greater than L?1'
-         call exitt
+         logs = 'EEST_NP+EEST_ELR greater than L?1'
+         call nekp4est_abort(logs)
       endif
 
 !     initalise coefficient mapping
@@ -375,9 +381,11 @@
       include 'INPUT'
       include 'WZ_DEF'
       include 'WZ'
+      include 'NEKP4EST'
       include 'ERR_EST'
 
 !     local variables
+      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl, kl, nn
 !     Legendre polynomial
       real plegx(LX1),plegy(LY1),plegz(LZ1)
@@ -385,11 +393,13 @@
 !-----------------------------------------------------------------------
 !     check polynomial order and numer of points for extrapolation
       if (min(NX1,NY1).le.(EEST_NP+EEST_ELR)) then
-        call nekp4est_abort('Error: increase L[XYZ]1')
+        logs = 'Error: increase L[XYZ]1'
+        call nekp4est_abort(logs)
       endif
 
       if (IF3D.and.(NZ1.le.(EEST_NP+EEST_ELR))) then
-        call nekp4est_abort('Error: increase L[XYZ]1')
+        logs = 'Error: increase L[XYZ]1'
+        call nekp4est_abort(logs)
       endif
 
 !     initialise arrays

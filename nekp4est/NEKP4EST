@@ -22,6 +22,12 @@
       integer NP4_LP_DEF  !<  default log threshold for nekp4est
       common /nekp4est_lp/ NP4_LP_DEF
 
+!     this stuff should be in other place as it is quite general, but for now it is here
+      integer NP4_LSTL_LOG !< length of comment string
+      parameter (NP4_LSTL_LOG = 200)
+      integer NP4_LSTL_FNM    !< length of file name string
+      parameter (NP4_LSTL_FNM = 132)
+
 !     number of children
       integer NP4_NCHILD
       parameter (NP4_NCHILD=2**LDIM)
