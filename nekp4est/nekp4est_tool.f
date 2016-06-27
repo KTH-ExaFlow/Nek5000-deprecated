@@ -15,11 +15,11 @@
 
 !     argument list
       integer priority
-      character(len=NP4_LSTL_LOG) logs
+      character(len=*) logs
 
 !     local variables
-      integer pkg_id
-      save pkg_id
+      character(len=NP4_LSTL_LOG) llogs
+      integer slen
       logical ifcalled
       save ifcalled
       data ifcalled /.FALSE./
@@ -28,11 +28,21 @@
         ifcalled=.TRUE.
 
 !     register nekp4est package
-        call fsc_pkg_reg(pkg_id,priority,'nekp4est'//CHAR(0),
+        call fsc_pkg_reg(NP4_PKG_ID,priority,'nekp4est'//CHAR(0),
      $  'SEM solver.'//CHAR(0))
       endif
 
-      call fsc_log (pkg_id, 1, priority, trim(logs)//CHAR(0))
+!     check log length
+      slen = len_trim(logs)
+      if (slen.ge.NP4_LSTL_LOG) then
+         llogs = 'Warning; too long log string, shortening'//CHAR(0)
+         call fsc_log (NP4_PKG_ID, 1, priority,trim(llogs))
+         llogs = logs(1:NP4_LSTL_LOG-1)//CHAR(0)
+      else
+         llogs = trim(logs)//CHAR(0)
+      endif
+
+      call fsc_log (NP4_PKG_ID, 1, priority, trim(llogs))
 
       return
       end
@@ -46,9 +56,23 @@
       include 'NEKP4EST'
 
 !     argument list
-      character(len=NP4_LSTL_LOG) logs
+      character(len=*) logs
+
+!     local variables
+      character(len=NP4_LSTL_LOG) llogs
+      integer slen
 !-----------------------------------------------------------------------
-      call fsc_abort(trim(logs)//CHAR(0))
+!     check log length
+      slen = len_trim(logs)
+      if (slen.ge.NP4_LSTL_LOG) then
+         llogs = 'Warning; too long log string, shortening'//CHAR(0)
+         call fsc_log (NP4_PKG_ID, 1, NP4_LP_ERR,trim(llogs))
+         llogs = logs(1:NP4_LSTL_LOG-1)//CHAR(0)
+      else
+         llogs = trim(logs)//CHAR(0)
+      endif
+
+      call fsc_abort(trim(llogs))
       return
       end
 !=======================================================================
@@ -63,9 +87,23 @@
 
 !     argument list
       integer ierr
-      character(len=NP4_LSTL_LOG) logs
+      character(len=*) logs
+
+!     local variables
+      character(len=NP4_LSTL_LOG) llogs
+      integer slen
 !-----------------------------------------------------------------------
-      call fsc_check_abort(ierr,trim(logs)//CHAR(0))
+!     check log length
+      slen = len_trim(logs)
+      if (slen.ge.NP4_LSTL_LOG) then
+         llogs = 'Warning; too long log string, shortening'//CHAR(0)
+         call fsc_log (NP4_PKG_ID, 1, NP4_LP_ERR,trim(llogs))
+         llogs = logs(1:NP4_LSTL_LOG-1)//CHAR(0)
+      else
+         llogs = trim(logs)//CHAR(0)
+      endif
+
+      call fsc_check_abort(ierr,trim(llogs))
       return
       end
 !=======================================================================

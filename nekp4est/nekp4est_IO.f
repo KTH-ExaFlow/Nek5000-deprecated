@@ -82,19 +82,20 @@
       include 'INPUT'           ! IFREGUO
       include 'RESTART_DEF'
       include 'RESTART'         ! NFILEO
+      include 'NEKP4EST'
 
 !     argument list
-      character*132  fname, bname
-      character*3 prefix
+      character(len=NP4_LSTL_FNM)  fname, bname
+      character(len=3) prefix
       integer ierr
 
 !     local variables
       integer ndigit, itmp
       real rfileo
 
-      character*6  six
-      save         six
-      data         six / "??????" /
+      character(len=6) six
+      save six
+      data six / "??????" /
 !-----------------------------------------------------------------------
 !     initialise variables
       ierr = 0
@@ -158,15 +159,16 @@
       include 'TSTEP'
       include 'GEOM_DEF'
       include 'GEOM'
+      include 'NEKP4EST'
 
 !     argument list
-      character*3 prefix
+      character(len=3) prefix
       integer fnumber
 
 !     local variables
       integer il, ierr, ioflds, nout
 
-      character*6  str
+      character(len=6)  str
 
       integer lwdsizo
       logical lifxyo, lifpo, lifvo, lifto, lifreguo, lifpso(LDIMT1)
@@ -174,7 +176,7 @@
 !     file strides
       integer*8 offs0,offs,stride,strideB,nxyzo8
 
-      character*132  fname
+      character(len=NP4_LSTL_FNM) fname
 
       real tiostart, tio   ! simple timing
       real dnbyte          ! bandwidth count
@@ -298,15 +300,16 @@
       include 'TSTEP'
       include 'GEOM_DEF'
       include 'GEOM'
+      include 'NEKP4EST'
 
 !     argument list
-      character*3 prefix
+      character(len=3) prefix
       integer fnumber
 
 !     local variables
-      character*132  fname
+      character(len=NP4_LSTL_FNM) fname
 
-      character*6  str
+      character(len=6) str
 
       integer iofldsr, ierr
 

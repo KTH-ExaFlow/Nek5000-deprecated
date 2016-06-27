@@ -19,8 +19,6 @@
       integer intracomm
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
-
 !     simple timing
       real t1, tmp
 
@@ -71,37 +69,31 @@
 !     p4est init
       call fp4est_init(NP4_LP_DEF)
 
-      logs = 'Starting nekp4est logs.'
-      call nekp4est_log(NP4_LP_DEF,logs)
+      call nekp4est_log(NP4_LP_DEF,'Starting nekp4est logs.')
  
 !     check consistency with SIZE
       if (N_DIM.ne.LDIM) then
-         logs = 'Error: nekp4est ldim inconsistent'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('Error: nekp4est ldim inconsistent')
       endif
 
       if (N_PSCL.ne.LDIMT) then
-         logs = 'Error: nekp4est ldimt inconsistent'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('Error: nekp4est ldimt inconsistent')
       endif
 
 !     for now as interpolation for hanging faces does not support it yet
       if (IF3D) then
         if(mod(LX1,2).eq.1.or.mod(LY1,2).eq.1.or.mod(LZ1,2).eq.1) then
-           logs = 'Error: nekp4est LX1 must be even.'
-           call nekp4est_abort(logs)
+           call nekp4est_abort('Error: nekp4est LX1 must be even.')
         endif
       else
         if(mod(LX1,2).eq.1.or.mod(LY1,2).eq.1) then
-           logs = 'Error: nekp4est LX1 must be even.'
-           call nekp4est_abort(logs)
+           call nekp4est_abort('Error: nekp4est LX1 must be even.')
         endif
       endif
 
 !     this is temporary
 #ifdef MOAB
-      logs = 'Error: nekp4est does not support moab'
-      call nekp4est_abort(logs)
+      call nekp4est_abort('Error: nekp4est does not support moab')
 #endif
 
 !     set reset flag
@@ -129,7 +121,6 @@
       include 'NEKP4EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       character(len=NP4_LSTL_FNM) filename ! file name
 
 !     simple timing
@@ -143,22 +134,21 @@
       t1 = dnekclock()
 
 !     save current tree structure
-      logs = 'Saving forest data.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Saving forest data.')
 
 !     prepare file name
       filename = trim(adjustl(SESSION))
       if (len_trim(filename).gt.(NP4_LSTL_FNM-12)) then
-         logs = 'ERROR: nekp4est_end; too long output file name'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('ERROR: nekp4est_end; too long output file name')
       endif
       filename = trim(filename)//'_end.tree'//CHAR(0)
       call fp4est_tree_save(1,filename)
 
 !     save GLL points to MSH file
       if (NP4_IOSTOP.eq.NP4_IOSTART) then
-         logs = 'Warning; nekp4est_mfo: equal input/output file numbers'
-         call nekp4est_log(NP4_LP_ESS,logs)
+         call nekp4est_log(NP4_LP_ESS,
+     $        'Warning; nekp4est_mfo: equal input/output file numbers')
          NP4_IOSTOP = NP4_IOSTOP +1
       endif
       call nekp4est_mfo('MSH',NP4_IOSTOP)
@@ -257,7 +247,6 @@
       common /nekmpi/ nidl,npl,nekcomm,nekgroup,nekreal
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       character(len=NP4_LSTL_FNM) filename ! file name
 
       integer itmp, lcbc, lrbc
@@ -274,14 +263,13 @@
       t1 = dnekclock()
 
 !     read forest data
-      logs = 'Reading forest data.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Reading forest data.')
 
 !     prepare file name
       filename = trim(adjustl(SESSION))
       if (len_trim(filename).gt.(NP4_LSTL_FNM-8)) then
-         logs = 'ERROR: nekp4est_end; too long output file name'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('ERROR: nekp4est_tree_load; too long output file name')
       endif
       filename = trim(filename)//'.tree'//CHAR(0)
       call fp4est_tree_load(nekcomm, 1,filename)
@@ -324,15 +312,15 @@
 !     check consistency of p4est structure and .rea file
 !     T mesh
         if (NELGT.ne.NP4_NELGT) then
-           logs = 'Error: NELGT inconsistent'
-           call nekp4est_abort(logs)
+           call nekp4est_abort
+     $          ('Error: nekp4est_tree_load; NELGT inconsistent')
         endif
 !     V mesh
 !     get globalnumber of V elements
         itmp = iglsum(NP4_NELV,1)
         if (NELGV.ne.itmp) then
-           logs = 'Error: NELGV inconsistent'
-           call nekp4est_abort(logs)
+           call nekp4est_abort
+     $          ('Error: nekp4est_tree_load; NELGV inconsistent')
         endif
 
       else

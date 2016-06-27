@@ -564,7 +564,6 @@
       real tmp(lnx,lny,lnz,2) ! work array
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer nxy, nyz
       integer iz  ! loop index
 !-----------------------------------------------------------------------
@@ -621,8 +620,7 @@
             call mxm(tmp,lnx,IYTAMR2CF(1,1,ch_pos(2)),lny,vf,lny)
          endif
       else  ! there should be as well place for mhd mesh
-         logs = 'ERROR: nekp4est_mapcf; wrong limesh'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('ERROR: nekp4est_mapcf; wrong limesh')
       endif
 
       return
@@ -657,7 +655,6 @@
       real tmp(lnx,lny,lnz,2) ! work array
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer nxy, nyz
       integer iz  ! loop index
 !-----------------------------------------------------------------------
@@ -714,8 +711,7 @@
             call mxm(tmp,lnx,IYTAMR2FC(1,1,ch_pos(2)),lny,vc,lny)
          endif
       else  ! there should be as well place for mhd mesh
-         logs = 'ERROR: nekp4est_mapfc; wrong limesh'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('ERROR: nekp4est_mapfc; wrong limesh')
       endif
 
       return
@@ -793,7 +789,6 @@
       real tmp(lnx,lny,lnz,3) ! work array
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer ch_pos(3)    !     child position in 3D
       integer iel          !     element position
       integer il, nl
@@ -824,8 +819,7 @@
       elseif (limesh.eq.2) then !preasure mesh
          call col2(vfc(1,1,1,el_lst(1)),IMAMR2,nl)
       else  ! there should be as well place for mhd mesh
-         logs = 'ERROR: nekp4est_coarsen_vs; wrong limesh'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('ERROR: nekp4est_coarsen_vs; wrong limesh')
       endif
 
       return
@@ -927,7 +921,6 @@
       integer el_lst(NP4_NCHILD)
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl ! loop index
       integer fs, fe
       integer limesh  ! mesh mark (velocity, preasure, mhd)
@@ -939,8 +932,8 @@
 !     I assume el_lst(1) is an existing parent
 !     compare with old global element number
       if (el_lst(1).gt.NP4_NELT_O) then
-         logs = 'Error: nekp4est_refine_el el_lst>NP4_NELT_O'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $       ('Error: nekp4est_refine_el el_lst>NP4_NELT_O')
       endif
 
 !     refine variables
@@ -1101,8 +1094,8 @@
 
 !     moving mesh; BM1LAG
       if (IFGEOM) then
-         logs = 'Error: nekp4est_refine_el no moving mesh yet.'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('Error: nekp4est_refine_el no moving mesh yet.')
       endif
 
 !     it could be place for perturbation, but interpolation would not
@@ -1133,7 +1126,6 @@
       integer el_lst(NP4_NCHILD)
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl ! loop index
       integer fs, fe
       integer limesh  ! mesh mark (velocity, preasure, mhd)
@@ -1144,8 +1136,7 @@
 !     is the firs element a correct one
 !     I assume el_lst(1) is an existing parent
       if (el_lst(1).gt.NELT) then
-         logs = 'Error: nekp4est_coarse_el el_lst>NELT'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('Error: nekp4est_coarse_el el_lst>NELT')
       endif
 
 !     coarsen variables
@@ -1303,8 +1294,8 @@
 
 !     moving mesh; BM1LAG
       if (IFGEOM) then
-         logs = 'Error: nekp4est_coarse_el no moving mesh yet.'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('Error: nekp4est_coarse_el no moving mesh yet.')
       endif
 
 !     it could be place for perturbation, but interpolation would not
@@ -1325,12 +1316,10 @@
       include 'NEKP4EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer el_lst(NP4_NCHILD)  ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
-      logs = 'Local data refinement.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Local data refinement.')
       do il=0,NP4_RFN_NR-1,NP4_NCHILD
         do jl=1,NP4_NCHILD
             el_lst(jl) = NP4_GLGL_RFN(3,il+jl)
@@ -1353,12 +1342,10 @@
       include 'NEKP4EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer el_lst(NP4_NCHILD)   ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
-      logs = 'Local data coarsening.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Local data coarsening.')
       do il=1,NP4_CRS_NR
         do jl=1,NP4_NCHILD
             el_lst(jl) = NP4_GLGL_CRS(2,jl,il)
@@ -1389,7 +1376,6 @@
       include 'NEKP4EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl ! loop index
       integer fs, fe
       integer limesh  ! mesh mark (velocity, preasure, mhd)
@@ -1397,8 +1383,7 @@
       real tmpv(LX1,LY1,LZ1,3), tmpvp(LX2,LY2,LZ2,3),
      $     tmpb(LBX1,LBY1,LBZ1,3), tmpbp(LBX2,LBY2,LBZ2,3)
 !-----------------------------------------------------------------------
-      logs = 'Local data refinement.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Local data refinement.')
 
 !     refine variables
 !     coordinates; mesh 1
@@ -1532,8 +1517,8 @@
 
 !     moving mesh; BM1LAG
       if (IFGEOM) then
-         logs = 'Error: nekp4est_refine_local_v no moving mesh yet.'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('Error: nekp4est_refine_local_v no moving mesh yet.')
       endif
 
 !     it could be place for perturbation, but interpolation would not
@@ -1563,7 +1548,6 @@
       include 'NEKP4EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl ! loop index
       integer fs, fe
       integer limesh  ! mesh mark (velocity, preasure, mhd)
@@ -1571,8 +1555,7 @@
       real tmpv(LX1,LY1,LZ1,3), tmpvp(LX2,LY2,LZ2,3),
      $     tmpb(LBX1,LBY1,LBZ1,3), tmpbp(LBX2,LBY2,LBZ2,3)
 !-----------------------------------------------------------------------
-      logs = 'Local data coarsening.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Local data coarsening.')
 
 !     coarsen variables
 !     coordinates; mesh 1
@@ -1706,8 +1689,8 @@
 
 !     moving mesh; BM1LAG
       if (IFGEOM) then
-         logs = 'Error: nekp4est_coarse_loca_v no moving mesh yet.'
-         call nekp4est_abort(logs)
+         call nekp4est_abort
+     $        ('Error: nekp4est_coarse_loca_v no moving mesh yet.')
       endif
 
 !     it could be place for perturbation, but interpolation would not

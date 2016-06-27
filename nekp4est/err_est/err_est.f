@@ -35,7 +35,6 @@
       integer ref_level(LELT)
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl, kl, ll ! loop index
 
 !     min and max values of error estimator
@@ -68,8 +67,7 @@
 !     functions
       real glmax, glmin
 !-----------------------------------------------------------------------
-      logs = 'Get error estimate.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Get error estimate.')
 
 !     reset refinement mark
       call izero(ref_mark,LELT)
@@ -312,12 +310,10 @@
       include 'ERR_EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl
 !-----------------------------------------------------------------------
 !     stamp logs
-      logs = 'Error est start.'
-      call nekp4est_log(NP4_LP_PRD,logs)
+      call nekp4est_log(NP4_LP_PRD,'Error est start.')
 
 !     set cutoff parameters
 !     used for values
@@ -341,15 +337,13 @@
 
 !     correctness check
       if (EEST_NP.gt.EEST_NP_MAX) then
-         logs = 'EEST_NP greater than EEST_NP_MAX.'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('EEST_NP greater than EEST_NP_MAX.')
       endif
       il = EEST_NP+EEST_ELR
       jl = min(LX1,LY1)
       if (IF3D) jl = min(jl,LZ1)
       if (il.gt.jl) then
-         logs = 'EEST_NP+EEST_ELR greater than L?1'
-         call nekp4est_abort(logs)
+         call nekp4est_abort('EEST_NP+EEST_ELR greater than L?1')
       endif
 
 !     initalise coefficient mapping
@@ -385,7 +379,6 @@
       include 'ERR_EST'
 
 !     local variables
-      character(len=NP4_LSTL_LOG) logs  ! log string
       integer il, jl, kl, nn
 !     Legendre polynomial
       real plegx(LX1),plegy(LY1),plegz(LZ1)
@@ -393,13 +386,11 @@
 !-----------------------------------------------------------------------
 !     check polynomial order and numer of points for extrapolation
       if (min(NX1,NY1).le.(EEST_NP+EEST_ELR)) then
-        logs = 'Error: increase L[XYZ]1'
-        call nekp4est_abort(logs)
+        call nekp4est_abort('Error: increase L[XYZ]1')
       endif
 
       if (IF3D.and.(NZ1.le.(EEST_NP+EEST_ELR))) then
-        logs = 'Error: increase L[XYZ]1'
-        call nekp4est_abort(logs)
+        call nekp4est_abort('Error: increase L[XYZ]1')
       endif
 
 !     initialise arrays

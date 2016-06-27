@@ -20,7 +20,8 @@
       parameter (NP4_LP_SLN=9)  !< silent; this never logs anything
 
       integer NP4_LP_DEF  !<  default log threshold for nekp4est
-      common /nekp4est_lp/ NP4_LP_DEF
+      integer NP4_PKG_ID  !< solver package id for logs doen with sc library
+      common /nekp4est_logi/ NP4_LP_DEF, NP4_PKG_ID
 
 !     this stuff should be in other place as it is quite general, but for now it is here
       integer NP4_LSTL_LOG !< length of comment string
