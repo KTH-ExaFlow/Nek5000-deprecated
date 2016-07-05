@@ -51,8 +51,6 @@ static p4est_mesh_t *mesh_nek = NULL; /**< Nek5000 mesh structure */
 static p4est_ghost_t *ghost_nek = NULL; /**< Nek5000 ghost zone structure */
 static p4est_nodes_t *nodes_nek = NULL; /**< Nek5000 vertex numbering structure */
 static p4est_lnodes_t *lnodes_nek = NULL; /**< Nek5000 GLL node numbering structure */
-static int nellv; /**< number of local V-mesh elements */
-static int max_level; /**< local max quadrant level */
 
 /*------------------------------------------------------------------------------
  * internal subroutines for interaction with Fortran
@@ -318,18 +316,20 @@ void fp4est_vtk_iscalar(int * iscalar, int *num, char * filename, int len_f) {
 void count_mshv(p4est_iter_volume_info_t * info, void *user_data) {
 	int loc_level;
 	user_data_t *data = (user_data_t *) info->quad->p.user_data;
+	int *lmax = (int *) user_data;
 
 	if (data->imsh == 0) {
-		nellv = nellv + 1;
+		lmax[0] = lmax[0] + 1;
 	}
 	// find max local level
 	loc_level = (int) info->quad->level;
-	max_level = (loc_level > max_level ? loc_level : max_level);
+	lmax[1] = (loc_level > lmax[1] ? loc_level : lmax[1]);
 }
 
 /* get mesh size */
 void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
 		int * maxl) {
+	int lmax[2];
 	// get global number of quadrants
 	*nelgt = (int) tree_nek->global_num_quadrants;
 	// zero based global position of local quadrants
@@ -338,17 +338,17 @@ void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
 	*nelt = (int) tree_nek->local_num_quadrants;
 
 	// count number of V-mesh elements and find current max level
-	nellv = 0;
-	max_level = 0;
+	lmax[0] = 0;
+	lmax[1] = 0;
 
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek, NULL, count_mshv, NULL, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &lmax, count_mshv, NULL, NULL, NULL);
 #else
-	p4est_iterate(tree_nek,ghost_nek,NULL,count_mshv,NULL,NULL);
+	p4est_iterate(tree_nek,ghost_nek,(void *) &lmax,count_mshv,NULL,NULL);
 #endif
 
-	*nelv = nellv;
-	*maxl = max_level;
+	*nelv = lmax[0];
+	*maxl = lmax[1];
 }
 
 /** @brief Iterate over element volumes to transfer element data
