@@ -736,7 +736,7 @@
 !     argument list
       integer lnx,lny,lnz,leln
       real vcf(lnx,lny,lnz,leln)
-      integer el_lst(NP4_NCHILD)
+      integer el_lst(NP4_NVRT)
       integer limesh
       real tmp(lnx,lny,lnz,3) ! work array
 
@@ -751,7 +751,7 @@
       nl=lnx*lny*lnz
       call copy(tmp,vcf(1,1,1,el_lst(1)),nl)
 !     loop over all the children 
-      do il= 1,NP4_NCHILD
+      do il= 1,NP4_NVRT
 !     get child position
          iel = el_lst(il)
          ch_pos(3) = (il-1)/4 +1
@@ -784,7 +784,7 @@
 !     argument list
       integer lnx,lny,lnz,leln
       real vfc(lnx,lny,lnz,leln)
-      integer el_lst(NP4_NCHILD)
+      integer el_lst(NP4_NVRT)
       integer limesh
       real tmp(lnx,lny,lnz,3) ! work array
 
@@ -797,7 +797,7 @@
 !     and inital ch_pos() = 1,1,1
       nl=lnx*lny*lnz
 !     loop over all the children 
-      do il= 1,NP4_NCHILD
+      do il= 1,NP4_NVRT
 !     get child position
          iel = el_lst(il)
          ch_pos(3) = (il-1)/4 +1
@@ -848,11 +848,11 @@
       real tmp(lnx,lny,lnz,3) ! work array
 
 !     local variables
-      integer el_lst(NP4_NCHILD)   ! local element list for refinement
+      integer el_lst(NP4_NVRT)   ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
-      do il=0,NP4_RFN_NR-1,NP4_NCHILD
-        do jl=1,NP4_NCHILD
+      do il=0,NP4_RFN_NR-1,NP4_NVRT
+        do jl=1,NP4_NVRT
             el_lst(jl) = NP4_GLGL_RFN(3,il+jl)
         enddo
         call nekp4est_refine_vs(vcf,el_lst,limesh,tmp,lnx,lny,lnz,leln)
@@ -886,11 +886,11 @@
       real tmp(lnx,lny,lnz,3) ! work array
 
 !     local variables
-      integer el_lst(NP4_NCHILD)   ! local element list for refinement
+      integer el_lst(NP4_NVRT)   ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
       do il=1,NP4_CRS_NR
-        do jl=1,NP4_NCHILD
+        do jl=1,NP4_NVRT
             el_lst(jl) = NP4_GLGL_CRS(2,jl,il)
         enddo
         call nekp4est_coarse_vs(vfc,el_lst,limesh,tmp,lnx,lny,lnz,leln)
@@ -918,7 +918,7 @@
       include 'NEKP4EST'
 
 !     argument list
-      integer el_lst(NP4_NCHILD)
+      integer el_lst(NP4_NVRT)
 
 !     local variables
       integer il, jl ! loop index
@@ -1123,7 +1123,7 @@
       include 'NEKP4EST'
 
 !     argument list
-      integer el_lst(NP4_NCHILD)
+      integer el_lst(NP4_NVRT)
 
 !     local variables
       integer il, jl ! loop index
@@ -1316,12 +1316,12 @@
       include 'NEKP4EST'
 
 !     local variables
-      integer el_lst(NP4_NCHILD)  ! local element list for refinement
+      integer el_lst(NP4_NVRT)  ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
       call nekp4est_log(NP4_LP_PRD,'Local data refinement.')
-      do il=0,NP4_RFN_NR-1,NP4_NCHILD
-        do jl=1,NP4_NCHILD
+      do il=0,NP4_RFN_NR-1,NP4_NVRT
+        do jl=1,NP4_NVRT
             el_lst(jl) = NP4_GLGL_RFN(3,il+jl)
         enddo
         call nekp4est_refine_el(el_lst)
@@ -1342,12 +1342,12 @@
       include 'NEKP4EST'
 
 !     local variables
-      integer el_lst(NP4_NCHILD)   ! local element list for refinement
+      integer el_lst(NP4_NVRT)   ! local element list for refinement
       integer il, jl ! loop index
 !-----------------------------------------------------------------------
       call nekp4est_log(NP4_LP_PRD,'Local data coarsening.')
       do il=1,NP4_CRS_NR
-        do jl=1,NP4_NCHILD
+        do jl=1,NP4_NVRT
             el_lst(jl) = NP4_GLGL_CRS(2,jl,il)
         enddo
         call nekp4est_coarse_el(el_lst)

@@ -59,7 +59,8 @@
 /* routines required by Nek5000 for data exchange */
 #define fp4est_msh_get_size  FORTRAN_NAME(fp4est_msh_get_size,FP4EST_MSH_GET_SIZE)
 #define fp4est_msh_get_dat   FORTRAN_NAME(fp4est_msh_get_dat,FP4EST_MSH_GET_DAT)
-#define fp4est_msh_get_node   FORTRAN_NAME(fp4est_msh_get_node,FP4EST_MSH_GET_NODE)
+#define fp4est_msh_get_node  FORTRAN_NAME(fp4est_msh_get_node,FP4EST_MSH_GET_NODE)
+#define fp4est_msh_get_lnode FORTRAN_NAME(fp4est_msh_get_lnode,FP4EST_MSH_GET_LNODE)
 /* callback routines */
 #define nek_init_msh_dat FORTRAN_NAME(nek_init_msh_dat,NEK_INIT_MSH_DAT)
 #define nek_get_msh_dat FORTRAN_NAME(nek_get_msh_dat,NEK_GET_MSH_DAT)
@@ -69,34 +70,32 @@
 #define nekp4est_cbci FORTRAN_NAME(nekp4est_cbci,NEKP4EST_CBCI)
 
 /** Data type for user variables; required by p4est */
-typedef struct
-{
+typedef struct {
 	int imsh; /**< velocity (0) and temperature (1) mesh indicator */
 	int igrp; /**< element group */
 	int crv[6]; /**< curvature data set by face curvature group the face belongs to:
-	0 - no curvature;
-	<0 - curved internal face; should be described by GLL points; nothing to do
-	>0 - curved external face; keeps the curvature group; correct on refinement */
-	char cbc[N_PSCL+2][6][3]; /**< boundary condition data */
-	double bc[N_PSCL+2][6][5];
+	 0 - no curvature;
+	 <0 - curved internal face; should be described by GLL points; nothing to do
+	 >0 - curved external face; keeps the curvature group; correct on refinement */
+	char cbc[N_PSCL + 2][6][3]; /**< boundary condition data */
+	double bc[N_PSCL + 2][6][5];
 	/* @{ */
-	double x[P4EST_CHILDREN],y[P4EST_CHILDREN],z[P4EST_CHILDREN]; /**< vertices of the element */
+	double x[P4EST_CHILDREN], y[P4EST_CHILDREN], z[P4EST_CHILDREN]; /**< vertices of the element */
 	/* @} */
 	int ref_mark; /**< integer to store refinement mark; 0 - nothing, 1 - refine, -1 coarsen */
 	// to keep track of changes of nek5000 global element numbering
 	int gln_el; /**< old element global numbering; nek5000 side */
 	int gln_parent; /**< old parent global numbering; nek5000 side */
 	int gln_children[P4EST_CHILDREN]; /**< old children global numbering; nek5000 side */
-}
-user_data_t;
-
+} user_data_t;
 
 /* Wrappers */
 /** Initialize p4est package setting log verbosity
  *
  * @param [in] log_threshold  Log level
  */
-void fp4est_init(int * log_threshold);
+void fp4est_init(int * log_threshold)
+;
 
 /** Initialize elements connectivity
  *
@@ -130,28 +129,31 @@ void fp4est_cnn_new(int * num_vertices, int * num_trees,
 		int * corner_to_tree, int * corner_to_corner);
 #else
 void fp4est_cnn_new(int * num_vertices, int * num_trees,
-		int * num_corners,
-		double *vertices,
-		int * tree_to_vertex, int * tree_to_tree,
-		int * tree_to_face,
-		int * tree_to_corner, int * ctt_offset,
-		int * corner_to_tree, int * corner_to_corner);
+        int * num_corners,
+        double *vertices,
+        int * tree_to_vertex, int * tree_to_tree,
+        int * tree_to_face,
+        int * tree_to_corner, int * ctt_offset,
+        int * corner_to_tree, int * corner_to_corner);
 #endif
 
 /** Destroy mesh connectivity */
-void fp4est_cnn_del();
+void fp4est_cnn_del()
+;
 
 /** Allocate or free the attribute fields in a connectivity
  *
  * @param enable_tree_attr
  */
-void fp4est_cnn_attr(int * enable_tree_attr);
+void fp4est_cnn_attr(int * enable_tree_attr)
+;
 
 /** Check connectivity consistency
  *
  * @param [out] is_valid   non zero for correct connectivity
  */
-void fp4est_cnn_valid(int * is_valid);
+void fp4est_cnn_valid(int * is_valid)
+;
 
 /** Internally connect a connectivity based on tree_to_vertex information.
  * Only internal connectivity; nor mesh periodicity
@@ -163,30 +165,35 @@ void fp4est_cnn_complete();
  * @param filename
  * @param len_f
  */
-void fp4est_cnn_save(char *filename, int len_f);
+void fp4est_cnn_save(char *filename, int len_f)
+;
 
 /** Load a connectivity structure from a file
  *
  * @param filename
  * @param len_f
  */
-void fp4est_cnn_load(char * filename, int len_f);
+void fp4est_cnn_load(char * filename, int len_f)
+;
 
 /** Generate forest
  *
  * @param fmpicomm
  * @param min_level
  */
-void fp4est_tree_new(MPI_Fint * fmpicomm, int * min_level);
+void fp4est_tree_new(MPI_Fint * fmpicomm, int * min_level)
+;
 
 /** Destroy tree */
-void fp4est_tree_del();
+void fp4est_tree_del()
+;
 
 /** Check tree consistency
  *
  * @param [out] is_valid     non zero for correct tree
  */
-void fp4est_tree_valid(int * is_valid);
+void fp4est_tree_valid(int * is_valid)
+;
 
 /** Save tree to the file
  *
@@ -194,7 +201,8 @@ void fp4est_tree_valid(int * is_valid);
  * @param filename
  * @param len_f
  */
-void fp4est_tree_save(int *save_data, char * filename, int len_f);
+void fp4est_tree_save(int *save_data, char * filename, int len_f)
+;
 
 /** Load tree from a file
  *
@@ -203,34 +211,41 @@ void fp4est_tree_save(int *save_data, char * filename, int len_f);
  * @param filename
  * @param len_f
  */
-void fp4est_tree_load(MPI_Fint * fmpicomm, int *load_data, char * filename, int len_f);
+void fp4est_tree_load(
+		MPI_Fint * fmpicomm, int *load_data, char * filename, int len_f)
+;
 
 /** Build ghost layer */
-void fp4est_ghost_new();
+void fp4est_ghost_new()
+;
 
 /** Destroy ghosr layer */
-void fp4est_ghost_del();
+void fp4est_ghost_del()
+;
 
 /** Generate mesh information */
-void fp4est_mesh_new();
+void fp4est_mesh_new()
+;
 
 /** Destroy mesh information */
-void fp4est_mesh_del();
+void fp4est_mesh_del()
+;
 
 /** Generate new node information */
-void fp4est_nodes_new();
+void fp4est_nodes_new()
+;
 
 /** Destroy node information */
-void fp4est_nodes_del();
+void fp4est_nodes_del()
+;
 
-/** Generate new global nodes (GLL points) numbering
- *
- * @param [in] ldgr      polynomial degree +1
- */
-void fp4est_lnodes_new(int ldgr);
+/** Generate new global nodes (GLL points) numbering */
+void fp4est_lnodes_new()
+;
 
 /** Destroy global node numberring */
-void fp4est_lnodes_del();
+void fp4est_lnodes_del()
+;
 
 /** Forest partitioning for p4est
  *
@@ -238,8 +253,8 @@ void fp4est_lnodes_del();
  * 0 - equal element count
  * 1 - octants families prepared for coarsening
  */
-void fp4est_part(int * partforcoarsen);
-
+void fp4est_part(int * partforcoarsen)
+;
 
 /* place for refinement, coarsening and balancing */
 
@@ -248,7 +263,8 @@ void fp4est_part(int * partforcoarsen);
  * @param filename
  * @param len_f
  */
-void fp4est_vtk_write(char * filename, int len_f);
+void fp4est_vtk_write(char * filename, int len_f)
+;
 
 /** Write integer scalar field to VTK file
  *
@@ -257,28 +273,48 @@ void fp4est_vtk_write(char * filename, int len_f);
  * @param filename
  * @param len_f
  */
-void fp4est_vtk_iscalar(int * iscalar,int *num,char * filename, int len_f);
+void fp4est_vtk_iscalar(int * iscalar,int *num,char * filename, int len_f)
+;
 
 /** Get mesh size information to Nek5000
  *
  * @param [out] nelgt   global element number
  * @param [out] nelgit  element offset (number of elements on lower nid's)
- * @param [out] nelt    number ov T-type elements
- * @param [out] nelv    number ov V-type elements
+ * @param [out] nelt    number of T-type elements
+ * @param [out] nelv    number of V-type elements
  * @param [out] maxl    current max level
  */
-void fp4est_msh_get_size(int * nelgt,int * nelgit, int * nelt, int * nelv, int * maxl);
+void fp4est_msh_get_size(
+		int * nelgt,int * nelgit, int * nelt, int * nelv, int * maxl)
+;
 
 /** Get mesh data to Nek5000
  *
  */
-void fp4est_msh_get_dat();
+void fp4est_msh_get_dat()
+;
 
 /** Get global vertex numbering to Nek5000
  *
  * @param [out] lnelt   number of local elements
  * @param [out] node    array with global vertex numbering
  */
-void fp4est_msh_get_node(int * lnelt, int * node);
+void fp4est_msh_get_node(int * lnelt, int * node)
+;
+
+/** Get global vertex, face and edge numbering to Nek5000
+ *
+ * @param lnelt      local number of elements
+ * @param lnoden     local number of nodes (vert., fac., edg.)
+ * @param gnoden     local number of owned nodes
+ * @param lnodes     global node numbering list
+ * @param hang_elm   is any face/edge hanging list
+ * @param hang_fsc   hanging face list
+ * @param hang_edg   hanging edge list
+ */
+void fp4est_msh_get_lnode(
+		int * lnelt, int * lnoden, int * gnoden,p4est_gloidx_t * lnodes,
+		int * hang_elm, int * hang_fsc, int * hang_edg)
+;
 
 #endif /* NEKP4EST_P4EST_FWRAP_H_ */

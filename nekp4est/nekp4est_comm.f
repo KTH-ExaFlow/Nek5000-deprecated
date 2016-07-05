@@ -20,10 +20,6 @@
       include 'NEKP4EST'
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer and real array sizes
       integer isw,rsw
 !     integer and real arrays depend on number of passive scalars
@@ -67,7 +63,7 @@
 !     B.C.
          itmp = 1
          do il=ibc,nfldt
-            do jl=1,n_fcs
+            do jl=1,NP4_NFCS
                do kl=1,5
                   itmp = itmp+1
                   vr(itmp,eg) = BC(kl,jl,eg,il)
@@ -87,7 +83,7 @@
 !     B.C.
          itmp = 2
          do il=ibc,nfldt
-            do jl=1,n_fcs
+            do jl=1,NP4_NFCS
                do kl=1,3
                   itmp = itmp+1
                   vi(itmp,eg) = ichar(CBC(jl,eg,il)(kl:kl))
@@ -129,7 +125,7 @@
 !     B.C.
          itmp = 1
          do il=ibc,nfldt
-            do jl=1,n_fcs
+            do jl=1,NP4_NFCS
                do kl=1,5
                   itmp = itmp+1
                   BC(kl,jl,eg,il) = vr(itmp,eg)
@@ -158,7 +154,7 @@
 !     B.C.
          itmp = 2
          do il=ibc,nfldt
-            do jl=1,n_fcs
+            do jl=1,NP4_NFCS
                do kl=1,3
                   itmp = itmp+1
                   CBC(jl,eg,il)(kl:kl) = char(vi(itmp,eg))
@@ -185,14 +181,14 @@
 !     BC, CBC
       do kl=ibc,nfldt
          do eg=1,NELT           !  SWAP TO PREPROCESSOR NOTATION
-            call chcopy(cbt,CBC(1,eg,kl)  ,n_fcs*3)
-            call copy  ( bt, BC(1,1,eg,kl),n_fcs*5)
-            do il=1,n_fcs
+            call chcopy(cbt,CBC(1,eg,kl)  ,NP4_NFCS*3)
+            call copy  ( bt, BC(1,1,eg,kl),NP4_NFCS*5)
+            do il=1,NP4_NFCS
                call copy  ( BC(1,il,eg,kl), bt(1,EFACE1(il)),5)
                call chcopy(CBC(  il,eg,kl),cbt(  EFACE1(il)),3)
             enddo
 !     renumber faces within 'E  ' and 'P  ' bc's
-            do il=1,n_fcs
+            do il=1,NP4_NFCS
                if (CBC(il,eg,kl).eq.'P  '
      $            .or.CBC(il,eg,kl).eq.'E  ') then
                   jl = BC(2,il,eg,kl)
@@ -204,8 +200,8 @@
 
 !     CCURVE
       do eg=1,NELT           !  SWAP TO PREPROCESSOR NOTATION
-            call chcopy(curvt,CCURVE(1,eg),n_fcs)
-            do il=1,n_fcs
+            call chcopy(curvt,CCURVE(1,eg),NP4_NFCS)
+            do il=1,NP4_NFCS
                call chcopy(CCURVE(il,eg),curvt(EFACE1(il)),1)
             enddo
       enddo
@@ -223,7 +219,7 @@
             write(iunit,*) jl,CCURVE(jl,il)
          enddo
          write(iunit,*) 'BC'
-         do jl=1,n_fcs
+         do jl=1,NP4_NFCS
             write(iunit,*) jl,CBC(jl,il,1)
             write(iunit,*) jl,(BC(kl,jl,il,1),kl=1,5)
          enddo
@@ -249,10 +245,6 @@
       include 'NEKP4EST'
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer and real array sizes
       integer isw,rsw
       parameter (isw=(1+2))
@@ -341,10 +333,6 @@
       include 'NEKP4EST'
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer and real array sizes
       integer isw,rsw
       parameter (isw=(1+2))
@@ -473,10 +461,6 @@
       include 'NEKP4EST'
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer and real array sizes
       integer isw,rsw
       parameter (isw=(2+2))
@@ -533,8 +517,8 @@
 
       if (lnelt.gt.0) then
 
-!     test local element number; it must be multiplication of n_vrts
-        if (mod(lnelt,n_vrts).ne.0) then
+!     test local element number; it must be multiplication of NP4_NVRT
+        if (mod(lnelt,NP4_NVRT).ne.0) then
            call nekp4est_abort('Error: rfn_transfer; wrong lnelt')
         endif
 
@@ -547,10 +531,10 @@
         il = NP4_NELT_O
 
 !     integer arrays
-        do eg=1,lnelt,n_vrts
+        do eg=1,lnelt,NP4_NVRT
             itmp2 = NP4_GLLEL_O(vi(1,eg))
             itmp3 = il
-            do jl=0,n_vrts-1
+            do jl=0,NP4_NVRT-1
 !     which child
                 itmp = vi(4,eg+jl)
 !     new global element number
@@ -647,10 +631,6 @@
       include 'NEKP4EST'
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer and real array sizes
       integer isw,rsw
       parameter (isw=(2+2))
@@ -695,9 +675,9 @@
       if (NP4_CRS_NR.gt.0) then
 !     calculate tmp global element number
 !       starting point
-        itmp = NELGT+(itmp - NP4_CRS_NR)*(n_vrts-1)
+        itmp = NELGT+(itmp - NP4_CRS_NR)*(NP4_NVRT-1)
         do il = 1, NP4_CRS_NR
-            do jl=2,n_vrts
+            do jl=2,NP4_NVRT
                 itmp = itmp + 1
                 NP4_GLGL_CRS(1,jl,il) = itmp
             enddo
@@ -709,7 +689,7 @@
         kl=0
         do il = 1, NP4_CRS_NR
             itmp =GLLNID(NP4_GLGL_CRS(1,1,il))
-            do jl=1,n_vrts
+            do jl=1,NP4_NVRT
                 kl=kl+1
 !     old global child element number
                 vi(1,kl) = NP4_GLGL_CRS(2,jl,il)
@@ -762,7 +742,7 @@
         do il = 1, NP4_CRS_NR
             itmp = NP4_GLGL_CRS(1,1,il)
             itmp2 = GLLNID(itmp)
-            do jl=1,n_vrts
+            do jl=1,NP4_NVRT
                 kl=kl+1
 !     new parent element global number
                 vi(1,kl) = itmp
@@ -786,8 +766,8 @@
 
       if (lnelt.gt.0) then
 
-!     test local element number; it must be multiplication of n_vrts
-        if (mod(lnelt,n_vrts).ne.0) then
+!     test local element number; it must be multiplication of NP4_NVRT
+        if (mod(lnelt,NP4_NVRT).ne.0) then
            call nekp4est_abort('Error: crs_transfer;wrong lnelt')
         endif
 
@@ -800,11 +780,11 @@
         il = NELT
 
 !     integer arrays
-        do eg=1,lnelt/n_vrts
-            kl=(eg-1)*n_vrts
+        do eg=1,lnelt/NP4_NVRT
+            kl=(eg-1)*NP4_NVRT
             itmp = GLLEL(vi(1,kl+1))
             itmp3 = il
-            do jl=1,n_vrts
+            do jl=1,NP4_NVRT
 !     local parent position
                 if (itmp.ne.GLLEL(vi(1,kl+jl))) then
                    call nekp4est_abort
@@ -833,7 +813,7 @@
      $          ('Error: crs_transfer; too many refined blocks')
         endif
 
-        lnelt = lnelt/n_vrts
+        lnelt = lnelt/NP4_NVRT
 
       endif
 !     save current number of "valid" elements
@@ -857,7 +837,7 @@
       open(unit=iunit,file='CRS_dat.txt'//str)
       write(iunit,*) 'Global info', nid, NP4_CRS_NR
       do eg=1,NP4_CRS_NR
-        do il=1,n_vrts
+        do il=1,NP4_NVRT
             write(iunit,*) eg,il,(NP4_GLGL_CRS(jl,il,eg),jl=1,2)
         enddo
       enddo
@@ -878,9 +858,9 @@
       end
 !=======================================================================
 !> @brief Redistribute single variable after refinement
-!! @param[in] vr      redistributed vector
-!! @param[in] rsw     array size
-!! @param[in] lbuff   array size
+!! @param[inout] vr      redistributed vector
+!! @param[in]    rsw     array size
+!! @param[inout] lbuff   array size
 !! @remarks This routine uses global scratch space SCRUZ
       subroutine nekp4est_vec_transfer(vr,rsw, lbuff)
       implicit none
@@ -900,14 +880,9 @@
       real vr(rsw,lbuff)
 
 !     local variables
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     integer array size
       integer isw
       parameter (isw=2)
-
 !     transfer arrays
       integer vi(isw,LELT)
       integer*8 vl              ! required by crystal rauter
@@ -935,7 +910,7 @@
      $     (cr_h,lnelt,eg,vi,isw,vl,0,vr,rsw,2)
 
 !     test local element number
-      if (lnelt.ne.(NELT+NP4_CRS_NR*(n_vrts-1))) then
+      if (lnelt.ne.(NELT+NP4_CRS_NR*(NP4_NVRT-1))) then
          call nekp4est_abort('Error: v1_transfer; lnelt /= nelt')
       endif
 
@@ -946,7 +921,113 @@
       return
       end
 !=======================================================================
+!> @brief Redistribute node data.
+!! @details Redistribute global node numberring and hanging node mark.
+!! @param[inout] lnodes  redistributed vector
+!! @param[in]    vnode   number of nodes
+!! @param[inout] lnelt   local number of elements
+!! @remarks This routine uses global scratch space SCRUZ
+      subroutine nekp4est_node_transfer(lnodes,vnode,lnelt)
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'
+      include 'PARALLEL_DEF'
+      include 'PARALLEL'
+      include 'TOPOL_DEF'
+      include 'TOPOL'
+      include 'NEKP4EST'
+      include 'NEKP4EST_TOPOL'
 
+!     argument list
+      integer vnode ! number of nodes; counted vertices, faces, edges
+      integer lnelt ! local number of elements; p4est count
+      integer*8 lnodes(vnode*LELT) ! global numberring of nodes
+
+!     local variables
+      integer el, fl ! loop index
+      integer itmp, itmpv(NP4_NFCS) ! dummy variables
+
+!     transfer arrays
+      integer vi_size
+      parameter (vi_size = 2+1+NP4_NFCS+NP4_NEDG)
+      real vr                   ! required by c.r.
+      integer vi(vi_size*LELT)        ! processor and element information
+      common /scruz/ vi
+      integer key(1)            ! required by crystal rauter; for sorting
 !-----------------------------------------------------------------------
+!     data transfer
+!     single send
+!     pack processor, element and hang arrays info
+      do el=1,lnelt
+!     global element number
+        itmp = NP4_NELIT + el
+        vi(1+(el-1)*vi_size) = itmp
+!     processor id
+        vi(2+(el-1)*vi_size) = GLLNID(itmp)
+!     hang arrays
+        itmp = 3
+!     element
+        vi(itmp+(el-1)*vi_size) = NP4_HNG_ELM(el)
+        itmp = itmp+1
+!     face
+        do fl=1,NP4_NFCS
+            vi(itmp+(el-1)*vi_size) = NP4_HNG_FSC(fl,el)
+            itmp = itmp+1
+        enddo
+!     edge
+#if N_DIM == 3
+        do fl = 1, NP4_NEDG
+            vi(itmp+(el-1)*vi_size) = NP4_HNG_EDG(fl,el)
+            itmp = itmp+1
+        enddo
+#endif
+      enddo
 
+!     transfer arrays
+      call crystal_tuple_transfer
+     $     (cr_h,lnelt,LELT,vi,vi_size,lnodes,vnode,vr,0,2)
+
+!     test local element number
+      if (lnelt.ne.NELT) call nekp4est_abort
+     $     ('Error: nekp4est_topol_transfer; lnelt /= nelt')
+
+!     sort elements acording to their global number
+      key(1) = 1
+      call crystal_tuple_sort
+     $     (cr_h,lnelt,vi,vi_size,lnodes,vnode,vr,0,key,1)
+
+!     move data back
+!     hang arrays
+      do el=1,lnelt
+        itmp = 3
+!     element
+        NP4_HNG_ELM(el) = vi(itmp+(el-1)*vi_size)
+        itmp = itmp+1
+!     face
+        do fl = 1, NP4_NFCS
+            NP4_HNG_FSC(fl,el) = vi(itmp+(el-1)*vi_size)
+            itmp = itmp+1
+        enddo
+!     edge
+#if N_DIM == 3
+        do fl = 1, NP4_NEDG
+           NP4_HNG_EDG(fl,el) = vi(itmp+(el-1)*vi_size)
+           itmp = itmp+1
+        enddo
+#endif
+      enddo
+
+!     change ordering of faces; due to inconsistent ordering of bc and cbc arrays
+!     NP4_HNG_FSC
+      do el=1,NELT           !  swap to preprocessor notation
+        call icopy(itmpv,NP4_HNG_FSC(1,el),NP4_NFCS)
+        do fl=1,NP4_NFCS
+            NP4_HNG_FSC(fl,el) = itmpv(EFACE1(fl))
+        enddo
+      enddo
+
+      return
+      end
 !=======================================================================

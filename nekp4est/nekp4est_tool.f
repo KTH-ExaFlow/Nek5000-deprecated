@@ -107,3 +107,119 @@
       return
       end
 !=======================================================================
+!> @brief integer8 version of isort
+!! @details Use Heap Sort (p 231 Num. Rec., 1st Ed.)
+!! @param[inout] as   sorted array
+!! @param[out]   ind  permutation
+!! @param[in]    nl   array size
+      subroutine i8sort(as,ind,nl)
+      implicit none
+
+!     argument list
+      integer nl
+      integer*8 as(nl)
+      integer ind(nl)
+
+!     local variables
+      integer im, ie, ii, il, jl
+      integer*8 aa
+!-----------------------------------------------------------------------
+!     initial permuatation
+      do im=1,nl
+         ind(im)=im
+      enddo
+
+      if (nl.eq.1) return
+!     initial middle and end position
+      im=nl/2+1
+      ie=nl
+!     infinite loop
+      do
+         if (im.gt.1) then
+            im = im-1
+            aa = as(im)
+            ii = ind(im)
+         else
+            aa =  as(ie)
+            ii = ind(ie)
+            as(ie) = as(1)
+            ind(ie)= ind(1)
+            ie=ie-1
+            if (ie.eq.1) then
+                as(1) = aa
+               ind(1) = ii
+               return
+            endif
+         endif
+         il=im
+         jl=im+im
+         do while (jl.le.ie)
+            if (jl.lt.ie) then
+               if (as(jl).lt.as(jl+1) ) jl=jl+1
+            endif
+            if (aa.lt.as(jl)) then
+                as(il) = as(jl)
+               ind(il) = ind(jl)
+               il=jl
+               jl=jl+jl
+            else
+               jl=ie+1
+            endif
+         enddo
+         as(il) = aa
+         ind(il) = ii
+      enddo
+
+      end
+!=======================================================================
+!> @brief modiffied version of iswap_ip
+!! @details In-place reverse permutation
+!! @param[inout] as   permuted array
+!! @param[in]    pi   permutation
+!! @param[in]    nl   array size
+      subroutine i8swap_rip(as,pi,nl)
+      implicit none
+
+!     argument list
+      integer nl
+      integer*8 as(nl)
+      integer pi(nl)
+
+!     local variables
+      integer il, jl
+      integer*8 as1, as2
+      integer j, k, loop_start, last, next
+      character*100 str
+!-----------------------------------------------------------------------
+      do il=1,nl
+         if (pi(il).gt.0) then   ! not swapped
+            as1 = as(il)
+            loop_start = il
+            next = pi(il)
+            loop : do jl=il,nl
+               if (next.lt.0) then
+                  write (str,*) 'Hey! i8swap_ip problem.',jl,il,nl,next
+                  call fsc_abort(str)
+               elseif (next.eq.loop_start) then
+                  as(next) = as1
+                  pi(next) = -pi(next)
+                  exit loop
+               else
+                  as2 = as(next)
+                  as(next) = as1
+                  as1 = as2
+                  last = next
+                  next = pi(last)
+                  pi(last) = -pi(last)
+               endif
+            enddo loop
+         endif
+      enddo
+
+!     reset permutation mark
+      do il=1,nl
+         pi(il) = -pi(il)
+      enddo
+      return
+      end
+!=======================================================================
