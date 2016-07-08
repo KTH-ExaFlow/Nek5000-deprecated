@@ -264,7 +264,8 @@ void fp4est_nodes_del() {
 
 void fp4est_lnodes_new() {
 	int ldgr;
-	/* I set degree to -N_DIM to be able to distinguish between vertices, edges and faces. Element interior is discarded. */
+	/* I set degree to -N_DIM to be able to distinguish between vertices, edges and faces.
+	 * Element interior is discarded. */
 	ldgr = -N_DIM;
 	lnodes_nek = p4est_lnodes_new(tree_nek, ghost_nek, ldgr);
 }
@@ -318,6 +319,7 @@ void count_mshv(p4est_iter_volume_info_t * info, void *user_data) {
 	user_data_t *data = (user_data_t *) info->quad->p.user_data;
 	int *lmax = (int *) user_data;
 
+    // coult V-type elements
 	if (data->imsh == 0) {
 		lmax[0] = lmax[0] + 1;
 	}
@@ -587,7 +589,8 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 	// transfer refinement history to Nek5000
 	nek_get_msh_hst(&data->gln_el, &data->gln_parent, &data->gln_children);
 
-	//	fill current global numbering of elements in nek5000 and reset refinement history for 0 level blocs
+	//	fill current global numbering of elements in nek5000 and reset refinement history
+	//  for 0 level blocs
 	data->gln_el = iwg;
 	data->gln_parent = -1;
 	for (ifc = 0; ifc < P4EST_CHILDREN; ++ifc) {
@@ -683,7 +686,7 @@ void fp4est_msh_get_node(int * lnelt, int * node) {
 
 }
 
-// get GLL node numbering
+/* get GLL node numbering */
 void fp4est_msh_get_lnode(int * lnelt, int * lnoden, int * gnoden,
 		p4est_gloidx_t * lnodes, int * hang_elm, int * hang_fsc, int * hang_edg) {
 	int il, jl, kl;
@@ -736,5 +739,168 @@ void fp4est_msh_get_lnode(int * lnelt, int * lnoden, int * gnoden,
 	} else {
 		SC_ABORT("lnodes_nek not allocated; aborting: fp4est_msh_get_lnode\n");
 	}
+
+}
+
+/** @brief Iterate over faces to get alignment
+ *
+ * @details Required by fp4est_msh_get_algn
+ *
+ * @param info
+ * @param user_data
+ */
+void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
+	int mpirank = info->p4est->mpirank;
+	p4est_gloidx_t gfirst_quad =  info->p4est->global_first_quadrant[mpirank];
+	int orient = (int) info->orientation;
+	sc_array_t *sides = &(info->sides);
+	p4est_iter_face_side_t *side;
+	int nside = (int) sides->elem_count;
+	int *fcs_arr = (int *) user_data;
+	int il, jl;
+	int iref, pref, pset, ipos;
+	int8_t face[2], ftmp;
+	if (info->tree_boundary&&orient){
+		/* face is on the outside of the forest; compare orientation of different trees*/
+		/* find the reference side; lowest face number */
+		P4EST_ASSERT (nside <= 2);
+		for (il = 0; il < nside; ++il) {
+			side = p4est_iter_fside_array_index_int (sides, il);
+			face[il] = side->face;
+		}
+		if (nside == 1) {
+			/* single side no alignment */
+			iref = nside +1;
+		} else {
+			/* 2 sides; find permutation set */
+			if (face[0]<face[1]) {
+				iref = 0;
+#ifdef P4_TO_P8
+				pref = p8est_face_permutation_refs[face[0]][face[1]];
+				pset = p8est_face_permutation_sets[pref][orient];
+#else
+				pset = orient;
+#endif
+			} else {
+				iref = 1;
+#ifdef P4_TO_P8
+				pref = p8est_face_permutation_refs[face[1]][face[0]];
+				pset = p8est_face_permutation_sets[pref][orient];
+#else
+				pset = orient;
+#endif
+			}
+		}
+
+	} else {
+		/* face is on the interior of the forest or orientation == 0; all quads aligned */
+		iref = nside +1;
+	}
+	for (il = 0; il < nside; ++il) {
+		side = p4est_iter_fside_array_index_int (sides, il);
+		if (il == iref) {
+			orient = pset;
+		} else {
+			orient = 0;
+		}
+		if (side->is_hanging) {
+			/* hanging face */
+			for (jl = 0; jl < P4EST_HALF; jl++) {
+				if (!side->is.hanging.is_ghost[jl]){
+					// local node
+					ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+					ipos = ipos*P4EST_FACES + (int) side->face;
+					fcs_arr[ipos] = orient;
+				}
+			}
+		} else {
+			if (!side->is.full.is_ghost) {
+				// local node
+				ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+				ipos = ipos*P4EST_FACES + (int) side->face;
+				fcs_arr[ipos] = orient;
+			}
+		}
+	}
+}
+
+#ifdef P4_TO_P8
+/** @brief Iterate over edges to get alignment
+ *
+ * @details Required by fp4est_msh_get_algn
+ *
+ * @param info
+ * @param user_data
+ */
+void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
+	int mpirank = info->p4est->mpirank;
+	p4est_gloidx_t gfirst_quad =  info->p4est->global_first_quadrant[mpirank];
+	sc_array_t *sides = &(info->sides);
+	p8est_iter_edge_side_t *side;
+	int nside = (int) sides->elem_count;
+	int *edg_arr = (int *) user_data;
+	int il, jl;
+	int ipos, tmin;
+	if (info->tree_boundary){
+		/* face is on the outside of the forest; compare orientation of different trees*/
+		for (il = 0; il < nside; ++il) {
+			side = p8est_iter_eside_array_index_int (sides, il);
+			if (side->is_hanging) {
+				/* hanging face */
+				for (jl = 0; jl < 2; jl++) {
+					if (!side->is.hanging.is_ghost[jl]){
+						// local node
+						ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+						ipos = ipos*P8EST_EDGES + (int) side->edge;
+						edg_arr[ipos] = (int) side->orientation;
+					}
+				}
+			} else {
+				if (!side->is.full.is_ghost) {
+					// local node
+					ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+					ipos = ipos*P8EST_EDGES + (int) side->edge;
+					edg_arr[ipos] = (int) side->orientation;
+				}
+			}
+		}
+	} else {
+		/* edge is on the interior of the forest; all quads are aligned */
+		for (il = 0; il < nside; ++il) {
+			side = p8est_iter_eside_array_index_int (sides, il);
+			if (side->is_hanging) {
+				/* hanging face */
+				for (jl = 0; jl < 2; jl++) {
+					if (!side->is.hanging.is_ghost[jl]){
+						// local node
+						ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+						ipos = ipos*P8EST_EDGES + (int) side->edge;
+						edg_arr[ipos] = 0;
+					}
+				}
+			} else {
+				if (!side->is.full.is_ghost) {
+					// local node
+					ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+					ipos = ipos*P8EST_EDGES + (int) side->edge;
+					edg_arr[ipos] = 0;
+				}
+			}
+		}
+	}
+
+
+}
+#endif
+
+/* get face and edge aignment */
+void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt) {
+	*lnelt = (int) tree_nek->local_num_quadrants;
+#ifdef P4_TO_P8
+	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL, algn_fcs_get, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) edg_algn, NULL, NULL, algn_edg_get, NULL);
+#else
+	p4est_iterate(tree_nek,ghost_nek,(void *) fcs_algn,NULL,algn_fcs_get,NULL);
+#endif
 
 }

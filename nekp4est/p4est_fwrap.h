@@ -61,6 +61,7 @@
 #define fp4est_msh_get_dat   FORTRAN_NAME(fp4est_msh_get_dat,FP4EST_MSH_GET_DAT)
 #define fp4est_msh_get_node  FORTRAN_NAME(fp4est_msh_get_node,FP4EST_MSH_GET_NODE)
 #define fp4est_msh_get_lnode FORTRAN_NAME(fp4est_msh_get_lnode,FP4EST_MSH_GET_LNODE)
+#define fp4est_msh_get_algn  FORTRAN_NAME(fp4est_msh_get_algn,FP4EST_MSH_GET_ALGN)
 /* callback routines */
 #define nek_init_msh_dat FORTRAN_NAME(nek_init_msh_dat,NEK_INIT_MSH_DAT)
 #define nek_get_msh_dat FORTRAN_NAME(nek_get_msh_dat,NEK_GET_MSH_DAT)
@@ -315,6 +316,15 @@ void fp4est_msh_get_node(int * lnelt, int * node)
 void fp4est_msh_get_lnode(
 		int * lnelt, int * lnoden, int * gnoden,p4est_gloidx_t * lnodes,
 		int * hang_elm, int * hang_fsc, int * hang_edg)
+;
+
+/** Get face and edge orientation
+ *
+ * @param fcs_algn   face alignment
+ * @param edg_algn   edge alignment
+ * @param lnelt      local number of elements
+ */
+void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt)
 ;
 
 #endif /* NEKP4EST_P4EST_FWRAP_H_ */

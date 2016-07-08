@@ -1031,3 +1031,99 @@
       return
       end
 !=======================================================================
+!> @brief Redistribute aligment data.
+!! @details Redistribute orientation of faces and edges.
+!! @param[inout] falgn   face alignment
+!! @param[inout] ealgn   edge alignment
+!! @param[inout] lnelt   local number of elements
+!! @remarks This routine uses global scratch space SCRUZ
+      subroutine nekp4est_algn_transfer(falgn,ealgn,lnelt)
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'
+      include 'PARALLEL_DEF'
+      include 'PARALLEL'
+      include 'TOPOL_DEF'
+      include 'TOPOL'
+      include 'NEKP4EST'
+      include 'NEKP4EST_TOPOL'
+
+!     argument list
+
+      integer lnelt ! local number of elements; p4est count
+      integer falgn(NP4_NFCS*LELT), ealgn(NP4_NEDG*LELT)! elignment
+
+!     local variables
+      integer el, fl ! loop index
+      integer itmp, itmpv(NP4_NFCS) ! dummy variables
+
+!     transfer arrays
+      integer*8 vl              ! required by crystal rauter
+      integer vi_size
+      parameter (vi_size = 2+NP4_NFCS+NP4_NEDG)
+      real vr                   ! required by c.r.
+      integer vi(vi_size*LELT)        ! processor and element information
+      common /scruz/ vi
+      integer key(1)            ! required by crystal rauter; for sorting
+!-----------------------------------------------------------------------
+!     data transfer
+!     single send
+!     pack processor, element and hang arrays info
+      do el=1,lnelt
+!     global element number
+        itmp = NP4_NELIT + el
+        vi(1+(el-1)*vi_size) = itmp
+!     processor id
+        vi(2+(el-1)*vi_size) = GLLNID(itmp)
+!     alignment arrays
+        itmp = 3
+!     face
+        do fl=1,NP4_NFCS
+            vi(itmp+(el-1)*vi_size) = NP4_ALGN_FCS(fl,el)
+            itmp = itmp+1
+        enddo
+!     edge
+#if N_DIM == 3
+        do fl = 1, NP4_NEDG
+            vi(itmp+(el-1)*vi_size) = NP4_ALGN_EDG(fl,el)
+            itmp = itmp+1
+        enddo
+#endif
+      enddo
+
+!     transfer arrays
+      call crystal_tuple_transfer
+     $     (cr_h,lnelt,LELT,vi,vi_size,vl,0,vr,0,2)
+
+!     test local element number
+      if (lnelt.ne.NELT) call nekp4est_abort
+     $     ('Error: nekp4est_algn_transfer; lnelt /= nelt')
+
+!     sort elements acording to their global number
+      key(1) = 1
+      call crystal_tuple_sort
+     $     (cr_h,lnelt,vi,vi_size,vl,0,vr,0,key,1)
+
+!     move data back
+!     alignment arrays
+      do el=1,lnelt
+        itmp = 3
+!     face
+        do fl = 1, NP4_NFCS
+            NP4_ALGN_FCS(fl,el) = vi(itmp+(el-1)*vi_size)
+            itmp = itmp+1
+        enddo
+!     edge
+#if N_DIM == 3
+        do fl = 1, NP4_NEDG
+           NP4_ALGN_EDG(fl,el) = vi(itmp+(el-1)*vi_size)
+           itmp = itmp+1
+        enddo
+#endif
+      enddo
+
+      return
+      end
+!=======================================================================

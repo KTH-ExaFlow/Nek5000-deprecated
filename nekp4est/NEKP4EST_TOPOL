@@ -78,26 +78,21 @@
 !                       2--3
 !                       |  |
 !                       0--1
-!     They are numberred according to p4est by 0..7 and storred in NP4_PRM_FCS
+!     They are numberred according to p4est by 0..7 and storred in NP4_ALGN_FCS
 ! { 0, 1, 2, 3 }      0 => identity
 ! { 0, 2, 1, 3 }      1 => T
 ! { 1, 0, 3, 2 }      2 => P_x
-! { 1, 3, 0, 2 }      3 => P_y T
-! { 2, 0, 3, 1 }      4 => P_x T
+! { 1, 3, 0, 2 }      3 => P_x T
+! { 2, 0, 3, 1 }      4 => P_y T
 ! { 2, 3, 0, 1 }      5 => P_y
 ! { 3, 1, 2, 0 }      6 => P_y P_x T
 ! { 3, 2, 1, 0 }      7 => P_y P_x
 !       where   T - transpose
 !               P_x - permutation in x (rows)
 !               P_y - permutation in y (collumns)
-!     Edge orintation is simillar to 2D face.
-!     p4est keep only relative face and edge orinetation which is nisufficient
-!     for nek5000, as there are not communication buffers used for gather-scatter
-!     operations. This could be solved by proper node renumberring in nekp4est_setvert
-!     but can lead to problems with edges, as they are shared by more than 2 elements.
-!     In this case global orientation has to be defined.
-      integer NP4_PRM_FCS(NP4_NFCS,LELT), !< global numberring of faces
-     $        NP4_PRM_EDG(NP4_NEDG,LELT)  !< global numberring of egdes
+!     Edge orientation is simillar to 2D face.
+      integer NP4_ALGN_FCS(NP4_NFCS,LELT), !< global numberring of faces
+     $        NP4_ALGN_EDG(NP4_NEDG,LELT)  !< global numberring of egdes
      
-      common /nekp4est_prm/ NP4_PRM_FCS, NP4_PRM_EDG
+      common /nekp4est_algn/ NP4_ALGN_FCS, NP4_ALGN_EDG
      

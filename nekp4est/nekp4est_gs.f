@@ -9,15 +9,12 @@
 !!  hanging node and orinetation information for faces and edges.
       subroutine nekp4est_topol_get()
       implicit none
-
-!     local variables
-      integer lnelt ! local number of elements
 !-----------------------------------------------------------------------
 !     global node numberring; hangign node mark
-      call nekp4est_node_get(lnelt)
+      call nekp4est_node_get()
 
 !     face, edge orientation
-      call nekp4est_prm_get(lnelt)
+      call nekp4est_algn_get()
 
       return
       end
@@ -25,10 +22,9 @@
 !> @brief Get node information.
 !! @details Get global vertex, face and edge numberring together with
 !!  hanging node mark.
-!! @param[out] lnelt  local number of elements; p4est count
 !! @todo Check strange transpose of vertex numberring caused by data
-!!  redistribution
-      subroutine nekp4est_node_get(lnelt)
+!!  redistribution. It does not cause problems, but is unexpected.
+      subroutine nekp4est_node_get()
       implicit none
       include 'SIZE_DEF'
       include 'SIZE'
@@ -39,10 +35,8 @@
       include 'NEKP4EST'
       include 'NEKP4EST_TOPOL'
 
-!     argument list
-      integer lnelt ! local number of elements; p4est count
-
 !     local variables
+      integer lnelt ! local number of elements; p4est count
       integer lnoden ! local number of indep. nodes; p4est count
       integer gnoden ! local number of independent nodes not shared with other proc.
       integer vnode ! number of nodes; counted vertices, faces, edges
@@ -184,7 +178,6 @@
             if (itmp.le.NP4_NFCS) then ! face
                unodes(il) = unodes(il) + lnfcs8
             else if (itmp.le.(NP4_NFCS + NP4_NEDG)) then ! edge
-            write(*,*) 'tutaj',nid
                unodes(il) = unodes(il) + lnedg8
             else if (itmp.le.(NP4_NFCS + NP4_NEDG + NP4_NVRT)) then ! vertex
                unodes(il) = unodes(il) + lnvrt8
@@ -218,10 +211,12 @@
             NP4_GLBNR_FCS(il,el) = lnodes(itmp)
          enddo
 !     edge
+#if N_DIM == 3
          do il = 1,NP4_NEDG
             itmp = itmp + 1
             NP4_GLBNR_EDG(il,el) = lnodes(itmp)
          enddo
+#endif
 !     vertex
          do il = 1,NP4_NVRT
             itmp = itmp + 1
@@ -243,60 +238,65 @@
       write(iunit,*) NP4_GLBNR_LVRT, NP4_GLBNR_LFCS, NP4_GLBNR_LEDG
       write(iunit,*) 'FACE'
       do el=1,lnelt
-         write(iunit,*) el,(NP4_GLBNR_FCS(il,el),il=1,NP4_NFCS)
+         write(iunit,*) el,LGLEL(el),
+     $                 (NP4_GLBNR_FCS(il,el),il=1,NP4_NFCS)
       enddo
 #if N_DIM == 3
       write(iunit,*) 'EDGE'
       do el=1,lnelt
-         write(iunit,*) el,(NP4_GLBNR_EDG(il,el),il=1,NP4_NEDG)
+         write(iunit,*) el,LGLEL(el),
+     $                 (NP4_GLBNR_EDG(il,el),il=1,NP4_NEDG)
       enddo
 #endif
       write(iunit,*) 'VERTEX'
       do el=1,lnelt
-         write(iunit,*) el,(NP4_GLBNR_VRT(il,el),il=1,NP4_NVRT)
+         write(iunit,*) el,LGLEL(el),
+     $                 (NP4_GLBNR_VRT(il,el),il=1,NP4_NVRT)
       enddo
       close(iunit)
 #endif
       return
       end
 !=======================================================================
-!> @brief Get face, edge orinetation.
-!! @param[in] lnelt  local number of elements; p4est count
-      subroutine nekp4est_prm_get(lnelt)
+!> @brief Get face, edge alignment.
+      subroutine nekp4est_algn_get()
       implicit none
       include 'SIZE_DEF'
       include 'SIZE'
       include 'INPUT_DEF'
       include 'INPUT'
+#ifdef DEBUG
+      include 'PARALLEL_DEF'
+      include 'PARALLEL'
+#endif
       include 'NEKP4EST'
       include 'NEKP4EST_TOPOL'
 
-!     argument list
-      integer lnelt ! local number of elements; p4est count
-
 !     local variables
+      integer lnelt ! local number of elements; p4est count
       integer el, il ! loop index
 
-!#ifdef DEBUG
+#ifdef DEBUG
       character*2 str
       integer iunit, ierr
-!#endif
+#endif
 !-----------------------------------------------------------------------
       call nekp4est_log
      $      (NP4_LP_PRD,'Get element elighment.')
 
 !     reset arrays
       il = LELT*NP4_NFCS
-      call izero(NP4_PRM_FCS,il)
+      call izero(NP4_ALGN_FCS,il)
       il = LELT*NP4_NEDG
-      call izero(NP4_PRM_EDG,il)
+      call izero(NP4_ALGN_EDG,il)
 
 !     get face, edge orientation
-
+      call fp4est_msh_get_algn(NP4_ALGN_FCS,NP4_ALGN_EDG,lnelt)
 
 !     redistribute data
+      call nekp4est_algn_transfer(NP4_ALGN_FCS, NP4_ALGN_EDG,lnelt)
 
-!#ifdef DEBUG
+#ifdef DEBUG
 !     for testing
       call io_file_freeid(iunit, ierr)
       write(str,'(i2.2)') NID
@@ -304,30 +304,30 @@
       write(iunit,*) lnelt
       write(iunit,*) 'FACE'
       do el=1,lnelt
-         write(iunit,*) el,(NP4_PRM_FCS(il,el),il=1,NP4_NFCS)
+         write(iunit,*) el,LGLEL(el),(NP4_ALGN_FCS(il,el),il=1,NP4_NFCS)
       enddo
 #if N_DIM == 3
       write(iunit,*) 'EDGE'
       do el=1,lnelt
-         write(iunit,*) el,(NP4_PRM_EDG(il,el),il=1,NP4_NEDG)
+         write(iunit,*) el,LGLEL(el),(NP4_ALGN_EDG(il,el),il=1,NP4_NEDG)
       enddo
 #endif
       close(iunit)
-!#endif
+#endif
       return
       end
 !=======================================================================
 !> @brief Generate global GLL points numbering to generate communicator
-!! @details I use symmetric vertex, face and edge numberring decribed in
-!!  setedge. It is consistent as well with p4est ordering. The numberring
-!! is consistent with memory aligment and does not take into account
-!! face and edge orientation. I simply assume all elements are aligned.
+!! @details I use symmetric vertex, face and edge numberring described in
+!!  setedge. It is consistent with p4est ordering as well. In genral
+!! the numberring is consistent with memory aligment but takes into account
+!! face and edge orientation. This routine replaces set_vert.
 !! @param[out]   glo_num    global node numberring
 !! @param[out]   ngv        number of unique nodes
 !! @param[in]    nx         number of points in element along single dimension
 !! @param[in]    nel        element number
 !! @param[in]    ifcenter   do we include element interior
-!! @todo Add face and edge orientation
+!! @todo Test face and edge orientation in 3D
       subroutine nekp4est_setvert(glo_num,ngv,nx,nel,ifcenter)
       implicit none
       include 'SIZE_DEF'
@@ -345,8 +345,13 @@
 !     local variables
       integer nn, mm ! counter
       integer el, il, jl, kl ! loop index
+      integer jini, jend, jinc  ! loop limits
+      integer kini, kend, kinc  ! loop limits
+      logical iftranspose
       integer nxl, els, nstrd(NP4_NMAX), nstrdr(NP4_NMAX) ! data stride
       integer nstrt(NP4_NMAX) ! data start
+
+      integer ny, nz
 
 !     functions
       integer iglsum
@@ -409,10 +414,24 @@
             do il=1,NP4_NFCS
 !     initial face posiotin in the element
                nn = mm +nstrt(il)
-               do jl=1,nxl
+!     check aligment
+               if (NP4_ALGN_FCS(il,el).eq.0) then
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+               else if (NP4_ALGN_FCS(il,el).eq.1) then
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+               else
+                  call nekp4est_abort
+     $             ('Error: nekp4est_setvert; wrong face alignment.')
+               endif
+               do jl=jini,jend,jinc
                   nn = nn + nstrd(il)
                   glo_num(nn) = ngv + nxl*(NP4_GLBNR_FCS(il,el)-1) + jl
                enddo
+
             enddo
          enddo
          ngv = ngv + NP4_GLBNR_GFCS*nxl
@@ -465,14 +484,95 @@
             do il=1,NP4_NFCS
 !     initial face posiotin in the element
                nn = mm +nstrt(il)
-               do kl=1,nxl
-                  do jl=1,nxl
-                     nn = nn + nstrd(il)
-                     glo_num(nn) = ngv + (nxl*(NP4_GLBNR_FCS(il,el)-1) +
-     $                             kl-1)*nxl + jl
+!     check aligment
+               if (NP4_ALGN_FCS(il,el).eq.0) then ! identity
+                  iftranspose = .FALSE.
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+                  kini = 1
+                  kend = nxl
+                  kinc = 1
+               else if (NP4_ALGN_FCS(il,el).eq.1) then ! transpose (T)
+                  iftranspose = .TRUE.
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+                  kini = 1
+                  kend = nxl
+                  kinc = 1
+               else if (NP4_ALGN_FCS(il,el).eq.2) then ! permutation in x (P_x)
+                  iftranspose = .FALSE.
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+                  kini = 1
+                  kend = nxl
+                  kinc = 1
+               else if (NP4_ALGN_FCS(il,el).eq.3) then ! P_x T
+                  iftranspose = .TRUE.
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+                  kini = 1
+                  kend = nxl
+                  kinc = 1
+               else if (NP4_ALGN_FCS(il,el).eq.4) then ! P_y T
+                  iftranspose = .TRUE.
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+                  kini = nxl
+                  kend = 1
+                  kinc = -1
+               else if (NP4_ALGN_FCS(il,el).eq.5) then ! P_y
+                  iftranspose = .FALSE.
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+                  kini = nxl
+                  kend = 1
+                  kinc = -1
+               else if (NP4_ALGN_FCS(il,el).eq.6) then ! P_x P_y T
+                  iftranspose = .TRUE.
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+                  kini = nxl
+                  kend = 1
+                  kinc = -1
+               else if (NP4_ALGN_FCS(il,el).eq.7) then ! P_x P_y
+                  iftranspose = .FALSE.
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+                  kini = nxl
+                  kend = 1
+                  kinc = -1
+               else
+                  call nekp4est_abort
+     $             ('Error: nekp4est_setvert; wrong face alignement.')
+               endif
+
+               if (iftranspose) then
+                  do kl=kini,kend,kinc
+                     do jl=jini,jend,jinc
+                        nn = nn + nstrd(il)
+                        glo_num(nn) = ngv + (nxl*
+     $                         (NP4_GLBNR_FCS(il,el)-1) +jl-1)*nxl + kl
+                     enddo
+                     nn = nn + nstrdr(il)
                   enddo
-                  nn = nn + nstrdr(il)
-               enddo
+               else
+                  do kl=kini,kend,kinc
+                     do jl=jini,jend,jinc
+                        nn = nn + nstrd(il)
+                        glo_num(nn) = ngv + (nxl*
+     $                         (NP4_GLBNR_FCS(il,el)-1) +kl-1)*nxl + jl
+                     enddo
+                     nn = nn + nstrdr(il)
+                  enddo
+               endif
             enddo
          enddo
          ngv = ngv + NP4_GLBNR_GFCS*nxl*nxl
@@ -509,7 +609,20 @@
             do il=1,NP4_NEDG
 !     initial edge posiotin in the element
                nn = mm +nstrt(il)
-               do jl=1,nxl
+!     check aligment
+               if (NP4_ALGN_EDG(il,el).eq.0) then
+                  jini = 1
+                  jend = nxl
+                  jinc = 1
+               else if (NP4_ALGN_EDG(il,el).eq.1) then
+                  jini = nxl
+                  jend = 1
+                  jinc = -1
+               else
+                  call nekp4est_abort
+     $             ('Error: nekp4est_setvert; wrong edge alignment.')
+               endif
+               do jl=jini,jend,jinc
                   nn = nn + nstrd(il)
                   glo_num(nn) = ngv + nxl*(NP4_GLBNR_EDG(il,el)-1) + jl
                enddo
@@ -544,6 +657,18 @@
      $   ('Error: nekp4est_setvert; nx must be >= 2')
       endif
 
+!     to follow nek5000 user interface
+      ny = nx
+#if N_DIM == 3
+      nz = nx
+#else
+      nz = 1
+#endif
+      if(NIO.eq.0) write(*,*) 'call usrsetvert'
+      call usrsetvert(glo_num,nel,nx,nx,nz)
+      if(NIO.eq.0) write(*,'(A,/)') ' done :: usrsetvert'
+
+
 #ifdef DEBUG
 !     for testing
       call io_file_freeid(iunit, ierr)
@@ -552,7 +677,7 @@
       write(iunit,*) nel, nx,  ngv, LDIM
       nn = 0
       do el=1,nel
-         write(iunit,*) 'ELEMENT ',el
+         write(iunit,*) 'ELEMENT ',el,LGLEL(el)
 #if N_DIM == 2
          do jl=1,nx
             write(iunit,*) (glo_num(nn + il),il=1,nx)
@@ -574,7 +699,10 @@
       end
 
 !=======================================================================
-!     get global vertex numbering
+!> @brief Get global vertex numbering.
+!! @details This routine replaces nekMOAB_loadConn or get_vert_map called
+!!  in get_vert.
+!! @param[out]   vertex    global vertex numberring
       subroutine nekp4est_vertex_get(vertex)
       implicit none
       include 'SIZE_DEF'
@@ -598,77 +726,6 @@
          enddo
       enddo
 
-      return
-      end
-!=======================================================================
-!     to define global communicator for gll points based
-!     on p4est node numbering
-      subroutine nekp4est_setupds
-     $     (gs_handle,nx,ny,nz,nel,melg,glo_num)
-      implicit none
-
-      include 'SIZE_DEF'
-      include 'SIZE'
-!      include 'INPUT'
-!      include 'PARALLEL'
-!      include 'NONCON'
-
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
-!     input
-      integer gs_handle,nx,ny,nz,nel,melg
-      integer*8 glo_num(nx*ny*nz*nel)
-#if 0
-      integer mid,mp,nekcomm,nekgroup,nekreal
-      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
-
-      integer ntot
-      integer*8 ngv
-
-!     simple timing
-      real t0, t1
-!     functions
-      real dnekclock
-      character*2 str
-!-----------------------------------------------------------------------
-      t0 = dnekclock()
-
-      write(str,'(i2)') nx
-      call nekp4est_log(6,'nekp4est_setupds nx='//str//CHAR(0))
-
-!     Global-to-local mapping for gs
-!     p4est gives grid points numbering, so I just copy those vaues
-!     to glo_num and count number of unique lnodes
-      call nekp4est_setvert(glo_num,ngv,nx,nel,.FALSE.)
-
-!     Adam Peplinski;
-!     I'm not sure this subroutine should be called for p4est,
-!     but for now I keep it here
-      if(nid.eq.0) write(6,*) 'call usrsetvert'
-      call usrsetvert(glo_num,nel,nx,ny,nz)
-      if(nid.eq.0) write(6,'(A,/)') ' done :: usrsetvert'
-
-!     Initialize gather-scatter code
-      ntot      = nx*ny*nz*nel
-
-!     to awoid testing different communication methods
-!      call gs_setup(gs_handle,glo_num,ntot,nekcomm,mp)
-      call nekp4est_gs_setup(gs_handle,glo_num,ntot,nekcomm,mp)
-
-!     call gs_chkr(glo_num)
-
-      t1 = dnekclock() - t0
-      if (nid.eq.0) then
-         write(6,1) t1,gs_handle,nx,ngv,melg
-    1    format('   setupds time',1pe11.4,' seconds ',2i3,2i12)
-      endif
-
-
-!     set interpolation operator for hanging fases
-      call set_jmat(JMAT,gs_handle,nx,nz)
-#endif
       return
       end
 !=======================================================================
