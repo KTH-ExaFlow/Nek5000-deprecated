@@ -29,7 +29,7 @@
       integer NP4_LSTL_FNM    !< length of file name string
       parameter (NP4_LSTL_FNM = 132)
 
-!     for statis array allocation
+!     for static array allocation
       integer NP4_NVRT, NP4_NFCS, NP4_NEDG, NP4_NMAX
       parameter (NP4_NVRT=2**LDIM)  !<  number of vertices (children)
       parameter (NP4_NFCS=2*LDIM)  !<  number of faces
@@ -52,6 +52,7 @@
 
       integer NP4_LMAX      !< max refinement level
       common /nekp4est_iparam/ NP4_LMAX
+!     module parameters end
 
 !     p4est mesh info; p4est mesh differs from nekton one
 !     np4_nelgt,np4_nelt,np4_nelv- like nelgt,nelt,nelv

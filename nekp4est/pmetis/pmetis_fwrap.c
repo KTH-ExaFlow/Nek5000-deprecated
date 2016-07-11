@@ -25,15 +25,16 @@ void fpmetis_part(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
   idx_t ncon=1;     // number of vertex weights
   idx_t options[3]; // options
   idx_t edgcut;     // number of crossed edges
-  real_t tpwgts[1][*nparts];
+  real_t *tpwgts;
   real_t ubvec[1];
   real_t rtmp; 
   MPI_Comm mpicomm;
 
   // fraction of vertex weight
+  tpwgts = (real_t *) malloc(sizeof(double)*(*nparts));
   rtmp = 1.0/(real_t)(*nparts);
-  for(i=0;i<*nparts;++i){
-    tpwgts[0][i] = rtmp;
+  for(i=0;i<*nparts;i++){
+    tpwgts[i] = rtmp;
   }
 
   // imbalance tolerance
@@ -47,6 +48,7 @@ void fpmetis_part(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
 
   err = ParMETIS_V3_PartKway(vtxdist,xadj,adjncy,NULL,NULL,&wgtflag,&numflag,
 		  &ncon,nparts,tpwgts,ubvec,options,&edgcut,part,&mpicomm);
+  free(tpwgts);
 }
 /* Graph repartitioning */
 void fpmetis_rpart(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
@@ -58,16 +60,17 @@ void fpmetis_rpart(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
 	idx_t ncon=1;      // number of vertex weights
 	idx_t options[4];  // options
 	idx_t edgcut;      // number of crossed edges
-	real_t tpwgts[1][*nparts];
+	real_t *tpwgts;
 	real_t ubvec[1];
 	real_t itr;
 	real_t rtmp;
 	MPI_Comm mpicomm;
 
 	// fraction of vertex weight
+	tpwgts = (real_t *) malloc(sizeof(double)*(*nparts));
 	rtmp = 1.0/(real_t)(*nparts);
 	for(i=0;i<*nparts;++i){
-		tpwgts[0][i] = rtmp;
+		tpwgts[i] = rtmp;
 	}
 
 	// imbalance tolerance
@@ -90,6 +93,7 @@ void fpmetis_rpart(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
 
 	err = ParMETIS_V3_AdaptiveRepart(vtxdist,xadj,adjncy,NULL,NULL,NULL,&wgtflag,
 			&numflag,&ncon,nparts,tpwgts,ubvec,&itr,options,&edgcut,part,&mpicomm);
+	free(tpwgts);
 }
 
 void fpmetis_refine(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
@@ -101,15 +105,16 @@ void fpmetis_refine(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
   idx_t ncon=1;       // number of vertex weights
   idx_t options[4];   // options
   idx_t edgcut;       // number of crossed edges
-  real_t tpwgts[1][*nparts];
+  real_t *tpwgts;
   real_t ubvec[1];
   real_t rtmp;
   MPI_Comm mpicomm;
 
   // fraction of vertex weight
+  tpwgts = (real_t *) malloc(sizeof(double)*(*nparts));
   rtmp = 1.0/(real_t)(*nparts);
   for(i=0;i<*nparts;++i){
-    tpwgts[0][i] = rtmp;
+    tpwgts[i] = rtmp;
   }
 
   // imbalance tolerance
@@ -127,4 +132,5 @@ void fpmetis_refine(MPI_Fint * fmpicomm, int * vtxdist,int * xadj, int * adjncy,
 
   err = ParMETIS_V3_RefineKway(vtxdist,xadj,adjncy,NULL,NULL,&wgtflag,&numflag,
 		  &ncon,nparts,tpwgts,ubvec,options,&edgcut,part,&mpicomm);
+  free(tpwgts);
 }

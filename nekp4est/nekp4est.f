@@ -394,3 +394,211 @@
 
       return
       end
+!=======================================================================
+!> @brief Get element-processor mapping.
+!! @details This routine calculate element-processor mapping storred in
+!!  gllnid (PARALLEL). Originally it is provided by ###.map file, but
+!!  AMR requires dynamical mesh partitioning. This routine has to be
+!!  executed at least once to change p4est distribution to the correct one.
+!!  It is used as well for element-processor mapping update after every
+!!  mesh refinement/coarseing. We use last partitioning (not p4est one)
+!!  assuming all new children are placed on the parent node.
+!! @todo There are a few arrays scaling with processor number LP. It would
+!!  be good to change it.
+      subroutine nekp4est_get_map()
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'PARALLEL_DEF'
+      include 'PARALLEL'
+      include 'NEKP4EST'
+
+!     MPI communication datails
+      integer nidl,npl,nekcomm,nekgroup,nekreal
+      common /nekmpi/ nidl,npl,nekcomm,nekgroup,nekreal
+
+!     local variables
+
+      integer eg, il, jl, kl !loop index
+      integer itmp1, itmp2
+
+      integer el_countl
+      integer graph(4*LELT), graph_offset(LELT)
+      integer offset(0:LP),offtmp(0:LP)
+      integer order(LELT),sizes(2*LP), order2(LELT),sizes2(0:2*LP)
+
+!     simple timing
+      real t1, t2
+
+!     functions
+      real dnekclock
+
+!#ifdef DEBUG
+!     for testing
+      character*2 str
+      integer iunit, ierr
+!#endif
+!-----------------------------------------------------------------------
+!     init array
+      call izero(GLLNID,NELGT)
+
+# ifdef NEKPMETIS
+      call nekp4est_log(NP4_LP_PRD,'Runing ParMETIS.')
+!     for now we run it for hydro only
+      if (NELGV.eq.NELGT) then
+         call fp4est_msh_get_graph(el_countl, graph, graph_offset)
+
+         call izero(offset,NP+1)
+         offset(NID+1) = el_countl
+!     global sum to exchange data
+!     offtmp is used as scratch
+         call igop(offset,offtmp,'+  ',NP+1)
+
+         do eg =1,NP
+            offset(eg+1) = offset(eg+1) + offset(eg)
+         enddo
+
+!     save for future backward communication (fom nek5000 to p4est element distribution)
+         call icopy(NP4_NELNID,offset,NP+1)
+
+#ifdef DEBUG
+!     testing
+      call io_file_freeid(iunit, ierr)
+      write(str,'(i2.2)') NID
+      open(unit=iunit,file='graph.txt'//str)
+      write(iunit,*) (offset(il),il=0,NP)
+      do jl=1,offset(nid+1)-offset(NID)
+         write(iunit,*) jl+offset(NID)-1,
+     $   graph_offset(jl+1)-graph_offset(jl),
+     $   (graph(il),il=graph_offset(jl)+1,graph_offset(jl+1))
+      enddo
+      close(iunit)
+#endif
+
+!     We have to check if this is the first partitioning or the remap.
+!     If mapping is done for the first time full partitioning based on
+!     p4est element distribution (not optimal) must be done but this can
+!     be slow
+        if (NP4_IMAP.eq.0) then     ! check mapping count
+!     first partitioning
+!     we use sub-domain processor coupling related to p4est partitioning so no
+!     initialisation of GLLNID is necessary
+            eg=NP
+!     simple timing
+            t1 = dnekclock()
+            call fpmetis_part(nekcomm, offset,graph_offset, graph,
+     $          eg, GLLNID(NP4_NELIT+1))
+!     this should increase partitioning quality, but I don't see any improvement
+!            call fpmetis_refine(nekcomm, offset,graph_offset, graph,
+!     $          eg, GLLNID(NP4_NELIT+1))
+            t2 = dnekclock()
+            NP4_TCPP = NP4_TCPP + t2 - t1
+
+        else ! remapping
+!     use last optimal mapping and update it (should be faster)
+!     fill old mapping of new elements
+!     reset refinement/coarsening counters
+            il=1
+            jl=1
+!     loop over local p4est elements
+            do eg=1,NP4_NELT
+!     global element number
+                itmp1 = NP4_NELIT+eg
+!     check what happend to the element
+!     if no refinement/coarsening
+                itmp2 = NP4_GLGL_MAP(eg)
+!     otherwise
+                if (itmp2.eq.0) then
+                    if (il.le.NP4_RFN_NR.and.
+     $                  NP4_GLGL_RFN(1,il).eq.itmp1) then
+!     refinement
+                        itmp2 = NP4_GLGL_RFN(2,il)
+                        il = il+1
+                    elseif (jl.le.NP4_CRS_NR.and.
+     $                  NP4_GLGL_CRS(1,1,jl).eq.itmp1) then
+!     coarsening
+                        itmp2 = NP4_GLGL_CRS(2,1,jl)
+                        jl = jl+1
+                    else
+!     error; some option had to be taken
+                        call nekp4est_abort
+     $                       ('Error: remap; wrong pointer')
+                    endif
+                endif
+                GLLNID(itmp1) = NP4_GLLNID_O(itmp2)
+            enddo
+
+            eg=NP
+!     simple timing
+            t1 = dnekclock()
+!     ParMetis itr parameter describing the ratio of inter-processor
+!     communication time compared to data redistribution time.
+            t2 = 1000.0
+            call fpmetis_rpart(nekcomm, offset,graph_offset, graph,
+     $          eg, GLLNID(NP4_NELIT+1),t2)
+!     this should increase partitioning quality, but I don't see any improvement
+!            call fpmetis_refine(nekcomm, offset,graph_offset, graph,
+!     $          eg, GLLNID(NP4_NELIT+1))
+            t2 = dnekclock()
+            NP4_TCPPR = NP4_TCPPR + t2 - t1
+
+        endif ! mapping count
+#ifdef DEBUG
+!     testing
+      eg = offset(NID+1)-offset(NID)
+      call fp4est_vtk_iscalar(GLLNID(NP4_NELIT+1),eg,
+     $  "metis_part"//CHAR(0))
+      call io_file_freeid(iunit, ierr)
+      write(str,'(i2.2)') NID
+      open(unit=iunit,file='graph_part.txt'//str)
+      write(iunit,*) (offset(il),il=0,NP)
+      do il=1,offset(NID+1)-offset(NID)
+         write(iunit,*) il+offset(NID)-1,
+     $   GLLNID(NP4_NELIT+il)
+      enddo
+      close(iunit)
+#endif
+
+!     global sum to exchange data
+!     GLLEL is used as scratch
+         call igop(GLLNID,GLLEL,'+  ',NELGT)
+
+!     mapping of nek5000 to p4est element distribution
+        call izero(NP4_LGLNID,el_countl)
+        il = 0
+        do eg=1,NELGT
+            if (GLLNID(eg).eq.NID) then
+                il = il+1
+                loop : do jl=0,NP-1
+                    if (offset(jl+1).ge.eg) then
+                        NP4_LGLNID(il) = jl
+                        exit loop
+                    endif
+                enddo loop
+            endif
+        enddo
+
+      else
+         call nekp4est_abort('Error: ParMETIS requires NELGT=NELGV')
+      endif
+
+#else
+         call nekp4est_abort('Error: nekp4est requires ParMETIS')
+#endif
+
+!     Count number of elements on this processor
+      NELT=0
+      NELV=0
+      do eg=1,NELGT
+         if (GLLNID(eg).eq.NID) then
+            if (eg.le.NELGV) NELV=NELV+1
+            if (eg.le.NELGT) NELT=NELT+1
+         endif
+      enddo
+
+!     update mapping count
+      NP4_IMAP = NP4_IMAP + 1
+
+      return
+      end
+!=======================================================================

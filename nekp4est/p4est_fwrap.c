@@ -893,7 +893,7 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 }
 #endif
 
-/* get face and edge aignment */
+/* get face and edge alignment */
 void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt) {
 	*lnelt = (int) tree_nek->local_num_quadrants;
 #ifdef P4_TO_P8
@@ -902,5 +902,86 @@ void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt) {
 #else
 	p4est_iterate(tree_nek,ghost_nek,(void *) fcs_algn,NULL,algn_fcs_get,NULL);
 #endif
+}
 
+/* get graph for partitioning */
+void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
+{
+	// loop indexes
+	int il,jl,kl,hl;
+	//
+	int offset,element,el_count,node, itmp;
+	// number of processors, proc. id., local number of elements
+	const int num_procs = tree_nek->mpisize;
+	const int rank = tree_nek->mpirank;
+	const int el_local = (int) mesh_nek->local_num_quadrants;
+	// variables to deal with nonuniform connections
+	sc_array_t  *halfs;
+	p4est_locidx_t *halfentries;
+	sc_array_t  *ghosts = &(ghost_nek->ghosts);
+	p4est_quadrant_t *lquad;
+	// halfs position
+	halfs = mesh_nek->quad_to_half;
+	// create the graph
+	// initial offset end element count
+	offset=0;
+	el_count = 0;
+	graph_offset[0] = offset;
+	// in case no elements is counted
+	graph_offset[1] = offset;
+	// loop over elements
+	for(il=0;il<el_local;++il){
+		// to count elements
+		itmp = offset;
+		// loop over faces
+		for(jl=0;jl<P4EST_FACES;++jl){
+			kl=il*P4EST_FACES +jl;
+			// half-size neighbour; multiple entries per face
+			if (mesh_nek->quad_to_face[kl]<0){
+				halfentries = (p4est_locidx_t *) sc_array_index (halfs,mesh_nek->quad_to_quad[kl]);
+				for(hl=0;hl<P4EST_HALF;++hl){
+					element = (int) halfentries[hl];
+					// is the element non local
+					if (element>=el_local){
+						element = element - el_local;
+						lquad = (p4est_quadrant_t *) sc_array_index (ghosts,element);
+						node = (int) mesh_nek->ghost_to_proc[element];
+						element = (int) lquad->p.piggy3.local_num;
+						element =  element + (int) tree_nek->global_first_quadrant[node];
+					}
+					else{
+						element =  tree_nek->global_first_quadrant[rank] +  element;
+					}
+					graph[offset] = element;
+					offset = offset+1;
+				}
+			}
+			// single entrance per face
+			else{
+				element = (int) mesh_nek->quad_to_quad[kl];
+				// do I point myself
+				if (element!=il){
+					// is the element non local
+					if (element>=el_local){
+						element = element - el_local;
+						lquad = (p4est_quadrant_t *) sc_array_index (ghosts,element);
+						node = (int) mesh_nek->ghost_to_proc[element];
+						element = (int) lquad->p.piggy3.local_num;
+						element =  element + (int) tree_nek->global_first_quadrant[node];
+					}
+					else{
+						element =  tree_nek->global_first_quadrant[rank] +  element;
+					}
+					graph[offset] = element;
+					offset = offset+1;
+				}
+			}
+		}
+		// set graph offset
+		if (itmp<offset){
+			el_count = el_count +1;
+			graph_offset[el_count] = offset;
+		}
+	}
+	*node_num = el_count;
 }
