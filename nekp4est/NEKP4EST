@@ -95,7 +95,7 @@
       integer NP4_MAP_NR, NP4_RFN_NR, NP4_CRS_NR, NP4_RFN_NR_S
       integer NP4_GLGL_MAP(LELT), NP4_GLGL_MAP_NID(LELT), 
      $       NP4_GLGL_RFN(3,LELT),
-     $       NP4_GLGL_CRS(2,2**LDIM,LELT)
+     $       NP4_GLGL_CRS(2,NP4_NVRT,LELT)
       common /nekp4est_ref_map/ NP4_MAP_NR,NP4_RFN_NR,NP4_CRS_NR,
      $       NP4_RFN_NR_S, NP4_GLGL_MAP, NP4_GLGL_MAP_NID, 
      $       NP4_GLGL_RFN, NP4_GLGL_CRS

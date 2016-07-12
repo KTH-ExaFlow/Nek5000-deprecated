@@ -353,7 +353,20 @@ void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
 	*maxl = lmax[1];
 }
 
-/** @brief Iterate over element volumes to transfer element data
+/* data type for mesh data transfer between nek5000 and p4est*/
+typedef struct transfer_data_s {
+	int  ibc, ebc; /**< start and end for */
+	int  nelv; /**< global number of V-type elements */
+	int  lelt; /**< array dimension for bc arrays */
+    int *level; /**< pointer to element level array */
+	int *igrp; /**< pointer to element group array */
+	int *crv; /**< curvature data */
+	double *bc; /**< boundary condition parameters */
+	char *cbc; /**< boundary condition type */
+
+} transfer_data_t;
+
+/** @brief Iterate over element volumes to transfer element mesh data
  *
  * @details Required by fp4est_msh_get_dat
  *
@@ -362,39 +375,13 @@ void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
  */
 void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 	user_data_t *data = (user_data_t *) info->quad->p.user_data;
+	transfer_data_t *trans_data = (transfer_data_t *) user_data;
 
 	// which quad (local and global element number)
 	p4est_tree_t *tree;
 	p4est_locidx_t iwl;
-	int iwlt, iwg, level;
-
-	// to get element vertices
-	double xyz[3 * P4EST_CHILDREN];
-	int ifc, ifl, ic, ref, set;
-	int8_t ifm, ifmt;
-	p4est_locidx_t icl;
-
-	// to correct element connectivity
-	// I check only E (element) and P (periodic) b.c.
-	p4est_locidx_t *quad_to_quad = (p4est_locidx_t *) mesh_nek->quad_to_quad;
-	int8_t *quad_to_face = (int8_t *) mesh_nek->quad_to_face;
-	// quads on different processor
-	p4est_ghost_t *ghost_layer = (p4est_ghost_t *) info->ghost_layer;
-	p4est_quadrant_t *quad;
-	int *ghost_to_proc = (int *) mesh_nek->ghost_to_proc;
-
-	// external function to collect element data
-	extern void nek_get_msh_dat(int * iwt, int * iwq, int * imsh, int * igrp,
-			int * level, char (*)[N_PSCL + 2][6][3],
-			double (*)[N_PSCL + 2][6][5], int (*)[6]);
-	// external function to collect mesh refinement history
-	extern void nek_get_msh_hst(int * iwq_o, int * iwq_p,
-			int (*)[P4EST_CHILDREN]);
-
-	// common blocks to exchange data with Nek5000
-	extern struct {
-		int ibc, nfldt;
-	}nekp4est_cbci;
+	int iwlt, iwg;
+	int ifc, ifl, ic, il;// loop index
 
 	// get quad number
 	tree = p4est_tree_array_index(info->p4est->trees, info->treeid);
@@ -402,209 +389,166 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 	iwl = info->quadid + tree->quadrants_offset;
 	iwlt = (int) iwl;
 	// global quad number
-	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + (int) iwl;
+	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+
+	// test V versus T meshes; no V mesh beyond nelv
+	if (data->imsh && iwg < trans_data->nelv) {
+		printf("V/T-type element mismatch: %i, %i\n",iwg,trans_data->nelv);
+		SC_ABORT("Aborting: iter_msh_dat\n");
+	}
 
 	// quadrant level
-	level = (int) info->quad->level;
+	trans_data->level[iwlt] = (int) info->quad->level;
 
-	// check connectivity
-	for (ifc = 0; ifc < P4EST_FACES; ++ifc) {
-		ic = (int) iwl * P4EST_FACES + ifc;
-		// is it inner or periodic face
-		if (iwl == quad_to_quad[ic] && ifc == (int) quad_to_face[ic]) {
-			// not inner or periodic face
-			for (ifl = nekp4est_cbci.ibc; ifl <= nekp4est_cbci.nfldt; ++ifl) {
-				//check connection type (should not be E or P)
-				if (data->cbc[ifl][ifc][2] == ' '
-						&& data->cbc[ifl][ifc][1] == ' '
-						&& (data->cbc[ifl][ifc][0] == 'E'
-								|| data->cbc[ifl][ifc][0] == 'P')) {
-					printf("Connectivity error: %i %i %i %i %c%c%c\n",
-							tree_nek->mpirank, iwl, ifc, ifl,
-							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
-							data->cbc[ifl][ifc][2]);
-					printf("internal/external face mismatch.\n");
-					SC_ABORT("Aborting: iter_msh_dat\n");
-				}
+	// element group mark
+	trans_data->igrp[iwlt] = data->igrp;
+
+	// curvature data
+	for (ic = 0; ic < 6; ic++) {
+		trans_data->crv[iwlt*6+ic] = data->crv[ic];
+	}
+
+	// boundary condition
+	// loop over fluids
+	for (ifl = trans_data->ibc; ifl <= trans_data->ebc; ++ifl) {
+		// skip velocity bc for T-type mesh
+		if (data->imsh && ifl == NP4_VFLD) continue;
+		// loop over faces
+		for (ifc = 0; ifc < P4EST_FACES; ifc++) {
+			ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*5;
+			for (il = 0; il < 5; il++) {
+				trans_data->bc[ic+il] = data->bc[ifl][ifc][il];
 			}
-		} else {
-			// inner or periodic face
-			for (ifl = nekp4est_cbci.ibc; ifl <= nekp4est_cbci.nfldt; ++ifl) {
-				// check connection type (should be E or P)
-				// this check should eliminate external faces here
-				if (data->cbc[ifl][ifc][2] == ' '
-						&& data->cbc[ifl][ifc][1] == ' '
-						&& (data->cbc[ifl][ifc][0] == 'E'
-								|| data->cbc[ifl][ifc][0] == 'P')) {
-					//set neighbour global number
-					icl = quad_to_quad[ic];
-					if (icl < mesh_nek->local_num_quadrants) {
-						// local quad
-						data->bc[ifl][ifc][0] =
-								(double) icl
-										+ tree_nek->global_first_quadrant[tree_nek->mpirank]
-										+ 1;
-					} else {
-						// remote quad
-						icl = icl - mesh_nek->local_num_quadrants;
-						quad = p4est_quadrant_array_index(&ghost_layer->ghosts,
-								(size_t) icl);
-						data->bc[ifl][ifc][0] =
-								(double) quad->p.piggy3.local_num
-										+ tree_nek->global_first_quadrant[ghost_to_proc[icl]]
-										+ 1;
-					}
-					//set neighbour face
-					ifm = quad_to_face[ic];
-#ifdef P4_TO_P8
-					if (ifm >= 0 && ifm <= 23) {
-						// equal face sizes
-						data->bc[ifl][ifc][4] = 0.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-					} else if (ifm >= 24 && ifm <= 119) {
-						// Double-sized neighbour; marked 'J  ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// double-sized neighbour
-						data->bc[ifl][ifc][4] = 1.0;
-						// position
-						ifmt = ifm / 24;
-						data->bc[ifl][ifc][3] = (double) ifmt - 1;
-						// orientation
-						ifm = ifm - 24 * ifmt;
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-					} else if (ifm >= -24 && ifm <= -1) {
-						// Half-sized neighbour; marked 'SP ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// half-sized neighbour
-						data->bc[ifl][ifc][4] = 2.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifm = ifm + 24;
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-						// element number
-						data->bc[ifl][ifc][0] = 0.0;
-					} else {
-						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
-					}
-#else
-					if (ifm>=0&&ifm<=7) {
-						// equal face sizes
-						data->bc[ifl][ifc][4] = 0.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-					}
-					else if(ifm>=8&&ifm<=23) {
-						// Double-sized neighbour; marked 'J  ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// double-sized neighbour
-						data->bc[ifl][ifc][4] = 1.0;
-						// position
-						ifmt = ifm / 8;
-						data->bc[ifl][ifc][3] = (double) ifmt -1;
-						// orientation
-						ifm = ifm - 8*ifmt;
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-					}
-					else if(ifm>=-8&&ifm<=-1) {
-						// Half-sized neighbour; marked 'SP ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// half-sized neighbour
-						data->bc[ifl][ifc][4] = 2.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifm = ifm + 8;
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-						// element number
-						data->bc[ifl][ifc][0] = 0.0;
-					}
-					else {
-						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
-					}
-#endif
-				} else {
-					// not corretly marked inner face
-					printf("Connectivity error: %i %i %i %i %c%c%c\n",
-							tree_nek->mpirank, iwl, ifc, ifl,
-							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
-							data->cbc[ifl][ifc][2]);
-					SC_ABORT("Aborting: iter_msh_dat\n");
-				}
-			} // loop over fluids
+			ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*3;
+			for (il = 0; il < 3; il++) {
+				trans_data->cbc[ic+il] = data->cbc[ifl][ifc][il];
+			}
 		}
-	} // loop over faces
-
-	// transfer mesh data to Nek5000
-	nek_get_msh_dat(&iwlt, &iwg, &data->imsh, &data->igrp, &level, &data->cbc,
-			&data->bc, &data->crv);
-
-	// transfer refinement history to Nek5000
-	nek_get_msh_hst(&data->gln_el, &data->gln_parent, &data->gln_children);
-
-	//	fill current global numbering of elements in nek5000 and reset refinement history
-	//  for 0 level blocs
-	data->gln_el = iwg;
-	data->gln_parent = -1;
-	for (ifc = 0; ifc < P4EST_CHILDREN; ++ifc) {
-		data->gln_children[ifc] = -1;
 	}
 }
 
 // get mesh data to Nek5000
-void fp4est_msh_get_dat() {
+void fp4est_msh_get_dat(int * ibc, int * ebc, int * nelv, int *lelt, int * igrp,
+		int * level, int * crv, double * bc, char * cbc) {
+	transfer_data_t transfer_data;
+	transfer_data.ibc = *ibc;
+	transfer_data.ebc = *ebc;
+	transfer_data.nelv = *nelv;
+	transfer_data.lelt = *lelt;
+	transfer_data.igrp = igrp;
+	transfer_data.level = level;
+	transfer_data.crv = crv;
+	transfer_data.bc = bc;
+	transfer_data.cbc = cbc;
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek, NULL, iter_msh_dat, NULL, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_dat, NULL, NULL, NULL);
 #else
-	p4est_iterate(tree_nek,ghost_nek,NULL,iter_msh_dat,NULL,NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_dat, NULL, NULL);
 #endif
+}
+
+/* data type for refinement history data transfer between nek5000 and p4est*/
+typedef struct transfer_hst_s {
+	int map_nr; /**< local number of unchanged elements */
+	int rfn_nr; /**< local number of refined elements */
+	int crs_nr; /**< local number of coarsened elements */
+    int *glgl_map; /**< element number mapping for unchanged elements */
+	int *glgl_rfn; /**< element number mapping for refined elements */
+	int *glgl_crs; /**< element number mapping for coarsened elements */
+} transfer_hst_t;
+
+#define MIN( a, b ) ( ( a > b) ? b : a )
+
+/** @brief Iterate over element volumes to transfer refinement history data
+ *
+ * @details Required by fp4est_msh_get_hst
+ *
+ * @param info
+ * @param user_data
+ */
+void iter_msh_hst(p4est_iter_volume_info_t * info, void *user_data) {
+	user_data_t *data = (user_data_t *) info->quad->p.user_data;
+	transfer_hst_t *trans_data = (transfer_hst_t *) user_data;
+
+	// which quad (local and global element number)
+	p4est_tree_t *tree;
+	p4est_locidx_t iwl;
+	int iwlt, iwg;
+	int ifc, ifl, ic, il;// loop index
+
+	// get quad number
+	tree = p4est_tree_array_index(info->p4est->trees, info->treeid);
+	// local quad number
+	iwl = info->quadid + tree->quadrants_offset;
+	iwlt = (int) iwl;
+	// global quad number
+	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+
+	// check refinement status
+    ic = 1;
+    for (il=0; il < P4EST_CHILDREN; il++) ic = MIN(ic,data->gln_children[il]);
+    if (data->gln_parent == -1 && ic == -1) {
+    	// no refinement
+    	// count elements
+    	trans_data->map_nr = trans_data->map_nr + 1;
+    	// set element map
+    	trans_data->glgl_map[iwlt] = data->gln_el + 1;
+    } else if (data->gln_parent /= -1) {
+    	// refinement
+    	// count elements
+    	trans_data->rfn_nr = trans_data->rfn_nr + 1;
+    	// set dummy element map
+    	trans_data->glgl_map[iwlt] = 0;
+    	ic = (trans_data->rfn_nr-1)*3;
+    	// current global element number
+    	trans_data->glgl_rfn[ic] = iwg + 1;
+    	// old parent element number
+    	trans_data->glgl_rfn[ic +1] = data->gln_parent + 1;
+    	// child position
+    	trans_data->glgl_rfn[ic +2] = data->gln_el;
+    } else {
+    	// coarsening
+    	// count elements
+    	trans_data->crs_nr = trans_data->crs_nr + 1;
+    	// set dummy element map
+    	trans_data->glgl_map[iwlt] = 0;
+    	// new global position
+    	ic =(trans_data->crs_nr - 1)*2*P4EST_CHILDREN;
+    	trans_data->glgl_crs[ic] = iwg + 1;
+    	// old global position
+    	trans_data->glgl_crs[ic+1] = data->gln_children[0] + 1;
+    	for (il = 1; il < P4EST_CHILDREN; il++) {
+    		// new dummy global position
+    		trans_data->glgl_crs[ic+il*2] = 0;
+    		// old global position
+    		trans_data->glgl_crs[ic+il*2+1] = data->gln_children[il] + 1;
+    	}
+    }
+
+	//	fill current global numbering of elements in nek5000 and reset refinement history
+	data->gln_el = iwg;
+	data->gln_parent = -1;
+	for (ifc = 0; ifc < P4EST_CHILDREN; ++ifc) data->gln_children[ifc] = -1;
+}
+
+// get refinement history data to Nek5000
+void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map, int * glgl_rfn,
+		int * glgl_crs) {
+	transfer_hst_t transfer_data;
+	transfer_data.map_nr = 0;
+	transfer_data.rfn_nr = 0;
+	transfer_data.crs_nr = 0;
+	transfer_data.glgl_map = glgl_map;
+	transfer_data.glgl_rfn = glgl_rfn;
+	transfer_data.glgl_crs = glgl_crs;
+#ifdef P4_TO_P8
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst, NULL, NULL, NULL);
+#else
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst, NULL, NULL);
+#endif
+	*map_nr = transfer_data.map_nr;
+	*rfn_nr = transfer_data.rfn_nr;
+	*crs_nr = transfer_data.crs_nr;
 }
 
 // get global vertex numbering
@@ -683,7 +627,6 @@ void fp4est_msh_get_node(int * lnelt, int * node) {
 	} else {
 		SC_ABORT("nodes_nek not allocated; aborting: fp4est_msh_get_node\n");
 	}
-
 }
 
 /* get GLL node numbering */
@@ -888,8 +831,6 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 			}
 		}
 	}
-
-
 }
 #endif
 
@@ -900,7 +841,7 @@ void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt) {
 	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL, algn_fcs_get, NULL, NULL);
 	p4est_iterate(tree_nek, ghost_nek,(void *) edg_algn, NULL, NULL, algn_edg_get, NULL);
 #else
-	p4est_iterate(tree_nek,ghost_nek,(void *) fcs_algn,NULL,algn_fcs_get,NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL, algn_fcs_get, NULL);
 #endif
 }
 
@@ -985,3 +926,219 @@ void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
 	}
 	*node_num = el_count;
 }
+
+
+#if 0
+	//int8_t ifm, ifmt;
+	//p4est_locidx_t icl;
+
+	// to correct element connectivity
+	// I check only E (element) and P (periodic) b.c.
+	//p4est_locidx_t *quad_to_quad = (p4est_locidx_t *) mesh_nek->quad_to_quad;
+	//int8_t *quad_to_face = (int8_t *) mesh_nek->quad_to_face;
+	// quads on different processor
+	//p4est_ghost_t *ghost_layer = (p4est_ghost_t *) info->ghost_layer;
+	//p4est_quadrant_t *quad;
+	//int *ghost_to_proc = (int *) mesh_nek->ghost_to_proc;
+
+	// external function to collect element data
+	extern void nek_get_msh_dat(int * iwt, int * iwq, int * imsh, int * igrp,
+			int * level, char (*)[N_PSCL + 2][6][3],
+			double (*)[N_PSCL + 2][6][5], int (*)[6]);
+	// external function to collect mesh refinement history
+	extern void nek_get_msh_hst(int * iwq_o, int * iwq_p,
+			int (*)[P4EST_CHILDREN]);
+
+	// transfer mesh data to Nek5000
+	nek_get_msh_dat(&iwlt, &iwg, &data->imsh, &data->igrp, &level, &data->cbc,
+			&data->bc, &data->crv);
+
+	// transfer refinement history to Nek5000
+	nek_get_msh_hst(&data->gln_el, &data->gln_parent, &data->gln_children);
+
+
+	// check connectivity
+	for (ifc = 0; ifc < P4EST_FACES; ifc++) {
+		ic = iwlt * P4EST_FACES + ifc;
+		// is it inner or periodic face
+		if (iwl == quad_to_quad[ic] && ifc == (int) quad_to_face[ic]) {
+			// not inner or periodic face
+			for (ifl = trans_data->ibc; ifl <= trans_data->ebc; ++ifl) {
+				// skip velocity bc for T-type mesh
+				if (data->imsh && ifl == NP4_VFLD) continue;
+				//check connection type (should not be E or P)
+				if (data->cbc[ifl][ifc][2] == ' '
+						&& data->cbc[ifl][ifc][1] == ' '
+						&& (data->cbc[ifl][ifc][0] == 'E'
+								|| data->cbc[ifl][ifc][0] == 'P')) {
+					printf("Connectivity error: %i %i %i %i %c%c%c\n",
+							tree_nek->mpirank, iwl, ifc, ifl,
+							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
+							data->cbc[ifl][ifc][2]);
+					printf("internal/external face mismatch.\n");
+					SC_ABORT("Aborting: iter_msh_dat\n");
+				} else {
+					ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*5;
+					for (il = 0; il < 5; il++) {
+						trans_data->bc[ic+il] = data->bc[ifl][ifc][il];
+					}
+				}
+			}
+		} else {
+			// inner or periodic face
+			for (ifl = trans_data->ibc; ifl <= trans_data->ebc; ++ifl) {
+				// skip velocity bc for T-type mesh
+			    if (data->imsh && ifl == NP4_VFLD) continue;
+				// check connection type (in most cases should be should be E or P, however V-type
+			    // mesh is subset of T-mesh, so velocity bc can differ in this case)
+				// is the faces marked as internal
+				if (data->cbc[ifl][ifc][2] == ' '
+						&& data->cbc[ifl][ifc][1] == ' '
+						&& (data->cbc[ifl][ifc][0] == 'E'
+								|| data->cbc[ifl][ifc][0] == 'P')) {
+					//set neighbor global number
+					icl = quad_to_quad[ic];
+					if (icl < mesh_nek->local_num_quadrants) {
+						// local quad
+						data->bc[ifl][ifc][0] =
+								(double) icl
+										+ tree_nek->global_first_quadrant[tree_nek->mpirank]
+										+ 1;
+					} else {
+						// remote quad
+						icl = icl - mesh_nek->local_num_quadrants;
+						quad = p4est_quadrant_array_index(&ghost_layer->ghosts,
+								(size_t) icl);
+						data->bc[ifl][ifc][0] =
+								(double) quad->p.piggy3.local_num
+										+ tree_nek->global_first_quadrant[ghost_to_proc[icl]]
+										+ 1;
+					}
+					//set neighbour face
+					ifm = quad_to_face[ic];
+#ifdef P4_TO_P8
+					if (ifm >= 0 && ifm <= 23) {
+						// equal face sizes
+						data->bc[ifl][ifc][4] = 0.0;
+						// position
+						data->bc[ifl][ifc][3] = 0.0;
+						// orientation
+						ifmt = ifm / P4EST_FACES; // orientation r
+						ifm = ifm % P4EST_FACES;  // neighbour face
+						// find permutation
+						ref = p8est_face_permutation_refs[ifc][ifm];
+						set = p8est_face_permutation_sets[ref][ifmt];
+						data->bc[ifl][ifc][2] = (double) set;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1 + ifm;
+					} else if (ifm >= 24 && ifm <= 119) {
+						// Double-sized neighbour; marked 'J  ' in original nek5000
+						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
+						// important for subroutines:
+						//		get_fast_bc (no modification necessary)
+						//		and in dssum.f
+						// double-sized neighbour
+						data->bc[ifl][ifc][4] = 1.0;
+						// position
+						ifmt = ifm / 24;
+						data->bc[ifl][ifc][3] = (double) ifmt - 1;
+						// orientation
+						ifm = ifm - 24 * ifmt;
+						ifmt = ifm / P4EST_FACES; // orientation r
+						ifm = ifm % P4EST_FACES;  // neighbour face
+						// find permutation
+						ref = p8est_face_permutation_refs[ifc][ifm];
+						set = p8est_face_permutation_sets[ref][ifmt];
+						data->bc[ifl][ifc][2] = (double) set;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1 + ifm;
+					} else if (ifm >= -24 && ifm <= -1) {
+						// Half-sized neighbour; marked 'SP ' in original nek5000
+						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
+						// important for subroutines:
+						//		get_fast_bc (no modification necessary)
+						//		and in dssum.f
+						// half-sized neighbour
+						data->bc[ifl][ifc][4] = 2.0;
+						// position
+						data->bc[ifl][ifc][3] = 0.0;
+						// orientation
+						ifm = ifm + 24;
+						ifmt = ifm / P4EST_FACES; // orientation r
+						ifm = ifm % P4EST_FACES;  // neighbour face
+						// find permutation
+						ref = p8est_face_permutation_refs[ifc][ifm];
+						set = p8est_face_permutation_sets[ref][ifmt];
+						data->bc[ifl][ifc][2] = (double) set;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1 + ifm;
+						// element number
+						data->bc[ifl][ifc][0] = 0.0;
+					} else {
+						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
+					}
+#else
+					if (ifm>=0&&ifm<=7) {
+						// equal face sizes
+						data->bc[ifl][ifc][4] = 0.0;
+						// position
+						data->bc[ifl][ifc][3] = 0.0;
+						// orientation
+						ifmt = ifm / P4EST_FACES;
+						data->bc[ifl][ifc][2] = (double) ifmt;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
+					}
+					else if(ifm>=8&&ifm<=23) {
+						// Double-sized neighbour; marked 'J  ' in original nek5000
+						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
+						// important for subroutines:
+						//		get_fast_bc (no modification necessary)
+						//		and in dssum.f
+						// double-sized neighbour
+						data->bc[ifl][ifc][4] = 1.0;
+						// position
+						ifmt = ifm / 8;
+						data->bc[ifl][ifc][3] = (double) ifmt -1;
+						// orientation
+						ifm = ifm - 8*ifmt;
+						ifmt = ifm / P4EST_FACES;
+						data->bc[ifl][ifc][2] = (double) ifmt;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
+					}
+					else if(ifm>=-8&&ifm<=-1) {
+						// Half-sized neighbour; marked 'SP ' in original nek5000
+						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
+						// important for subroutines:
+						//		get_fast_bc (no modification necessary)
+						//		and in dssum.f
+						// half-sized neighbour
+						data->bc[ifl][ifc][4] = 2.0;
+						// position
+						data->bc[ifl][ifc][3] = 0.0;
+						// orientation
+						ifm = ifm + 8;
+						ifmt = ifm / P4EST_FACES;
+						data->bc[ifl][ifc][2] = (double) ifmt;
+						// face number
+						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
+						// element number
+						data->bc[ifl][ifc][0] = 0.0;
+					}
+					else {
+						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
+					}
+#endif
+				} else {
+					// not corretly marked inner face
+					printf("Connectivity error: %i %i %i %i %c%c%c\n",
+							tree_nek->mpirank, iwl, ifc, ifl,
+							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
+							data->cbc[ifl][ifc][2]);
+					SC_ABORT("Aborting: iter_msh_dat\n");
+				}
+			} // loop over fluids
+		}
+	} // loop over faces
+#endif

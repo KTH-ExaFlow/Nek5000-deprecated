@@ -59,6 +59,7 @@
 /* routines required by Nek5000 for data exchange */
 #define fp4est_msh_get_size  FORTRAN_NAME(fp4est_msh_get_size,FP4EST_MSH_GET_SIZE)
 #define fp4est_msh_get_dat   FORTRAN_NAME(fp4est_msh_get_dat,FP4EST_MSH_GET_DAT)
+#define fp4est_msh_get_hst   FORTRAN_NAME(fp4est_msh_get_hst,FP4EST_MSH_GET_HST)
 #define fp4est_msh_get_node  FORTRAN_NAME(fp4est_msh_get_node,FP4EST_MSH_GET_NODE)
 #define fp4est_msh_get_lnode FORTRAN_NAME(fp4est_msh_get_lnode,FP4EST_MSH_GET_LNODE)
 #define fp4est_msh_get_algn  FORTRAN_NAME(fp4est_msh_get_algn,FP4EST_MSH_GET_ALGN)
@@ -68,11 +69,9 @@
 #define nek_get_msh_dat FORTRAN_NAME(nek_get_msh_dat,NEK_GET_MSH_DAT)
 #define nek_get_msh_hst FORTRAN_NAME(nek_get_msh_hst,NEK_GET_MSH_HST)
 #define nek_refine_mark FORTRAN_NAME(nek_refine_mark,NEK_REFINE_MARK)
-/* Fortran common blocks required by p4est */
-#define nekp4est_cbci FORTRAN_NAME(nekp4est_cbci,NEKP4EST_CBCI)
 
 /** Data type for user variables; required by p4est */
-typedef struct {
+typedef struct user_data_s {
 	int imsh; /**< velocity (0) and temperature (1) mesh indicator */
 	int igrp; /**< element group */
 	int crv[6]; /**< curvature data set by face curvature group the face belongs to:
@@ -221,7 +220,7 @@ void fp4est_tree_load(
 void fp4est_ghost_new()
 ;
 
-/** Destroy ghosr layer */
+/** Destroy ghost layer */
 void fp4est_ghost_del()
 ;
 
@@ -292,8 +291,31 @@ void fp4est_msh_get_size(
 
 /** Get mesh data to Nek5000
  *
+ * @param[in]  ibc   starting position in cb and cbc arrays
+ * @param[in]  ebc   ending position in cb and cbc arrays
+ * @param[in]  nelv  global number of V-type elements
+ * @param[in]  lelt  array dimension for bc, cbc
+ * @param[out] igrp  element group
+ * @param[out] level element level
+ * @param[out] crv   element curvature
+ * @param[out] bc    element boundary condition parameters
+ * @param[out] cbc   element boundary condition type
  */
-void fp4est_msh_get_dat()
+void fp4est_msh_get_dat(int * ibc, int * nfld, int * nelv, int *lelt, int * igrp,
+		int * level, int * crv, double * bc, char * cbc)
+;
+
+/** Get refinement history data to Nek5000
+ *
+ * @param map_nr     local number of unchanged elements
+ * @param rfn_nr     local number of refined elements
+ * @param crs_nr     local number of coarsened elements
+ * @param glgl_map   element number mapping for unchanged elements
+ * @param glgl_rfn   element number mapping for refined elements
+ * @param glgl_crs   element number mapping for coarsened elements
+ */
+void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map, int * glgl_rfn,
+		int * glgl_crs)
 ;
 
 /** Get global vertex numbering to Nek5000

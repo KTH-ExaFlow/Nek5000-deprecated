@@ -228,6 +228,7 @@
       end
 !=======================================================================
 !> @brief Load tree information from the file
+!! @todo Upgrade curvature data; check setdef and setzer.
       subroutine nekp4est_tree_load()
       implicit none
       include 'SIZE_DEF'
@@ -249,13 +250,16 @@
 !     local variables
       character(len=NP4_LSTL_FNM) filename ! file name
 
-      integer itmp, lcbc, lrbc
+      integer itmp, lcbc, lrbc, el, il
+
+!     tmp array for curvature data
+      integer crvl(6,LELT)
 
 !     simple timing
       real t1, tmp
 
 !     functions
-      integer iglmax, iglsum
+      integer iglmax, iglsum, iglmin
       real dnekclock
       logical nekp4est_ifmesh
 !-----------------------------------------------------------------------
@@ -301,12 +305,12 @@
       call fp4est_msh_get_size(NP4_NELGT,NP4_NELIT,NP4_NELT,
      $    NP4_NELV,NP4_MLEV)
 
-!     get global max quadrant level
+!     get global max element level
       NP4_MLEV = iglmax(NP4_MLEV,1)
 
 !     check if we generate mesh from .rea or .mesh
 !!!      if (nekp4est_ifmesh()) then
-      if (.TRUE.) then
+      if (.FALSE.) then
 !     we use nek5000 standard method to generate the mesh
 
 !     check consistency of p4est structure and .rea file
@@ -348,6 +352,7 @@
 !     initialize arrays
 !     some of them are done in initdat but not all. It would be good to do it consistently
 !     for now I'm leaving it as it is
+        call izero(crvl ,6*LELT)
         call rzero(CURVE ,72*LELT)
         call blank(CCURVE,12*LELT)
         lcbc=18*LELT*(LDIMT1 + 1)
@@ -355,17 +360,26 @@
         call rzero(BC ,lrbc)
         call blank(CBC,lcbc)
 
-!     reset elemnt counts
-        EL_COUNT = 0
-        NP4_MAP_NR = 0
-        NP4_RFN_NR = 0
-        NP4_CRS_NR = 0
-
 !     load mesh data to local arrays
-!     in this version we load correct bc data and only mark curved faces
-!     this should be enough as mesh generation is skipped and curvature is
+!     In this version we load correct bc data and only mark for curved faces.
+!     For now this should be enough as mesh generation is skipped and curvature is
 !     used only in setrzer and setdef
-!!!        call fp4est_msh_get_dat
+        call fp4est_msh_get_dat
+     $       (IBC,NFLDT,NELGV,LELT,IGROUP,NP4_LEVEL,crvl,BC,CBC)
+
+!     curvature data
+!     I mark deformed as 'D' without going into details
+!     it should be fine as setrzer and setdef do simple check
+!     if(CCURVE(,).ne.' ')
+        do el = 1, NELT
+           do il=1,6
+              if (crvl(il,el).ne.0) CCURVE(il,el) = 'D'
+           enddo
+        enddo
+
+!     reset refinement history
+        call fp4est_msh_get_hst(NP4_MAP_NR,NP4_RFN_NR,NP4_RFN_NR,
+     $                        NP4_GLGL_MAP,NP4_GLGL_RFN, NP4_GLGL_CRS)
 
 !     new element distribution
 !!!        call mapelpr
@@ -382,8 +396,11 @@
 !     will be filled after io module is initialised
       endif
 
-!$$$!     testing
-!$$$      call fp4est_vtk_write('test')
+!     get mesh topology
+      call nekp4est_topol_get()
+
+!     testing
+      call fp4est_vtk_write('test')
 
 !     simple timing
       tmp = dnekclock() - t1

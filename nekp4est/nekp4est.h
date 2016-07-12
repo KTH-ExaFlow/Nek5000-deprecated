@@ -51,4 +51,7 @@
 #define NP4_RM_P_CRS     -2     /**< Coarsen by lowering polynomial order in element */
 /* @} */
 
+/* velocity position in bc and cbc arrays */
+#define NP4_VFLD   1
+
 #endif /* NEKP4EST_H_ */
