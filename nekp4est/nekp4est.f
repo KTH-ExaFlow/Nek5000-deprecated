@@ -392,15 +392,17 @@
 !     redistribute data
 !!!        call nekp4est_tree_transfer
 
-!     GLL points (XM1, Ym1, ZM1) and element vertices (XC, YC, ZC)
+!     GLL points (XM1, YM1, ZM1) and element vertices (XC, YC, ZC)
 !     will be filled after io module is initialised
       endif
 
 !     get mesh topology
       call nekp4est_topol_get()
 
+#ifdef DEBUG
 !     testing
-      call fp4est_vtk_write('test')
+      call fp4est_vtk_write('mesh_test'//char(0))
+#endif
 
 !     simple timing
       tmp = dnekclock() - t1
@@ -422,6 +424,9 @@
 !!  assuming all new children are placed on the parent node.
 !! @todo There are a few arrays scaling with processor number LP. It would
 !!  be good to change it.
+!! @todo Add weights to the nodes and faces; Add edges and vertices
+!!  to the graph together with wieghts.
+!! @todo Add graph partitioning for V and T meshes.
       subroutine nekp4est_get_map()
       implicit none
       include 'SIZE_DEF'
@@ -600,7 +605,7 @@
       endif
 
 #else
-         call nekp4est_abort('Error: nekp4est requires ParMETIS')
+      call nekp4est_abort('Error: nekp4est requires ParMETIS')
 #endif
 
 !     Count number of elements on this processor

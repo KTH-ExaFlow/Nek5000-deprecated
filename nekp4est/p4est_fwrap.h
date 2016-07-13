@@ -64,11 +64,7 @@
 #define fp4est_msh_get_lnode FORTRAN_NAME(fp4est_msh_get_lnode,FP4EST_MSH_GET_LNODE)
 #define fp4est_msh_get_algn  FORTRAN_NAME(fp4est_msh_get_algn,FP4EST_MSH_GET_ALGN)
 #define fp4est_msh_get_graph FORTRAN_NAME(fp4est_msh_get_graph,FP4EST_MSH_GET_GRAPH)
-/* callback routines */
-#define nek_init_msh_dat FORTRAN_NAME(nek_init_msh_dat,NEK_INIT_MSH_DAT)
-#define nek_get_msh_dat FORTRAN_NAME(nek_get_msh_dat,NEK_GET_MSH_DAT)
-#define nek_get_msh_hst FORTRAN_NAME(nek_get_msh_hst,NEK_GET_MSH_HST)
-#define nek_refine_mark FORTRAN_NAME(nek_refine_mark,NEK_REFINE_MARK)
+#define fp4est_refm_put      FORTRAN_NAME(fp4est_refm_put,FP4EST_REFM_PUT)
 
 /** Data type for user variables; required by p4est */
 typedef struct user_data_s {
@@ -357,6 +353,13 @@ void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt)
  * @param graph_offset  graph_offset - (xadj in ParMetis notation)
  */
 void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
+;
+
+/** Fill ref_mark in p4est block
+ *
+ * @param ref_mark   refinement mark array
+ */
+void fp4est_refm_put(int * ref_mark)
 ;
 
 #endif /* NEKP4EST_P4EST_FWRAP_H_ */

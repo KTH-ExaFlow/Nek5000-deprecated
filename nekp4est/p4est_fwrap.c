@@ -329,8 +329,8 @@ void count_mshv(p4est_iter_volume_info_t * info, void *user_data) {
 }
 
 /* get mesh size */
-void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
-		int * maxl) {
+void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt,
+		int * nelv, int * maxl) {
 	int lmax[2];
 	// get global number of quadrants
 	*nelgt = (int) tree_nek->global_num_quadrants;
@@ -344,9 +344,11 @@ void fp4est_msh_get_size(int * nelgt, int * nelgit, int * nelt, int * nelv,
 	lmax[1] = 0;
 
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek,(void *) &lmax, count_mshv, NULL, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &lmax, count_mshv,
+			NULL, NULL, NULL);
 #else
-	p4est_iterate(tree_nek,ghost_nek,(void *) &lmax,count_mshv,NULL,NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &lmax, count_mshv,
+			NULL, NULL);
 #endif
 
 	*nelv = lmax[0];
@@ -381,7 +383,7 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 	p4est_tree_t *tree;
 	p4est_locidx_t iwl;
 	int iwlt, iwg;
-	int ifc, ifl, ic, il;// loop index
+	int ifc, ifl, ib, ic, il;// loop index
 
 	// get quad number
 	tree = p4est_tree_array_index(info->p4est->trees, info->treeid);
@@ -415,11 +417,12 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 		if (data->imsh && ifl == NP4_VFLD) continue;
 		// loop over faces
 		for (ifc = 0; ifc < P4EST_FACES; ifc++) {
-			ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*5;
+			ib = ((ifl*trans_data->lelt + iwlt)*6+ifc);
+			ic = ib*5;
 			for (il = 0; il < 5; il++) {
 				trans_data->bc[ic+il] = data->bc[ifl][ifc][il];
 			}
-			ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*3;
+			ic = ib*3;
 			for (il = 0; il < 3; il++) {
 				trans_data->cbc[ic+il] = data->cbc[ifl][ifc][il];
 			}
@@ -428,8 +431,8 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 }
 
 // get mesh data to Nek5000
-void fp4est_msh_get_dat(int * ibc, int * ebc, int * nelv, int *lelt, int * igrp,
-		int * level, int * crv, double * bc, char * cbc) {
+void fp4est_msh_get_dat(int * ibc, int * ebc, int * nelv, int *lelt,
+		int * igrp, int * level, int * crv, double * bc, char * cbc) {
 	transfer_data_t transfer_data;
 	transfer_data.ibc = *ibc;
 	transfer_data.ebc = *ebc;
@@ -441,9 +444,11 @@ void fp4est_msh_get_dat(int * ibc, int * ebc, int * nelv, int *lelt, int * igrp,
 	transfer_data.bc = bc;
 	transfer_data.cbc = cbc;
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_dat, NULL, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data,
+			iter_msh_dat, NULL, NULL, NULL);
 #else
-	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_dat, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data,
+			iter_msh_dat, NULL, NULL);
 #endif
 }
 
@@ -485,8 +490,8 @@ void iter_msh_hst(p4est_iter_volume_info_t * info, void *user_data) {
 	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
 
 	// check refinement status
-    ic = 1;
-    for (il=0; il < P4EST_CHILDREN; il++) ic = MIN(ic,data->gln_children[il]);
+    ic = data->gln_children[0];
+    for (il=1; il < P4EST_CHILDREN; il++) ic = MIN(ic,data->gln_children[il]);
     if (data->gln_parent == -1 && ic == -1) {
     	// no refinement
     	// count elements
@@ -504,7 +509,7 @@ void iter_msh_hst(p4est_iter_volume_info_t * info, void *user_data) {
     	trans_data->glgl_rfn[ic] = iwg + 1;
     	// old parent element number
     	trans_data->glgl_rfn[ic +1] = data->gln_parent + 1;
-    	// child position
+    	// child position; numbered 0,..,P4EST_CHILDREN-1
     	trans_data->glgl_rfn[ic +2] = data->gln_el;
     } else {
     	// coarsening
@@ -532,8 +537,8 @@ void iter_msh_hst(p4est_iter_volume_info_t * info, void *user_data) {
 }
 
 // get refinement history data to Nek5000
-void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map, int * glgl_rfn,
-		int * glgl_crs) {
+void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map,
+		int * glgl_rfn, int * glgl_crs) {
 	transfer_hst_t transfer_data;
 	transfer_data.map_nr = 0;
 	transfer_data.rfn_nr = 0;
@@ -542,9 +547,11 @@ void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map,
 	transfer_data.glgl_rfn = glgl_rfn;
 	transfer_data.glgl_crs = glgl_crs;
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst, NULL, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst,
+			NULL, NULL, NULL);
 #else
-	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) &transfer_data, iter_msh_hst,
+			NULL, NULL);
 #endif
 	*map_nr = transfer_data.map_nr;
 	*rfn_nr = transfer_data.rfn_nr;
@@ -673,7 +680,8 @@ void fp4est_msh_get_lnode(int * lnelt, int * lnoden, int * gnoden,
 					lnodes[il * vnd + jl] = (p4est_gloidx_t) 1 + offset + kl;
 				} else if (kl < local) {
 					kl =kl - owned;
-					lnodes[il * vnd + jl] = (p4est_gloidx_t) 1 + lnodes_nek->nonlocal_nodes[kl];
+					lnodes[il * vnd + jl] = (p4est_gloidx_t) 1 +
+							lnodes_nek->nonlocal_nodes[kl];
 				} else {
 					SC_ABORT("Wrong node number; aborting: fp4est_msh_get_lnode\n");
 				}
@@ -736,7 +744,8 @@ void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
 		}
 
 	} else {
-		/* face is on the interior of the forest or orientation == 0; all quads aligned */
+		/* face is on the interior of the forest or orientation == 0;
+		 * all quads aligned */
 		iref = nside +1;
 	}
 	for (il = 0; il < nside; ++il) {
@@ -751,7 +760,8 @@ void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
 			for (jl = 0; jl < P4EST_HALF; jl++) {
 				if (!side->is.hanging.is_ghost[jl]){
 					// local node
-					ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+					ipos = (int) (side->treeid +
+							side->is.hanging.quadid[jl] - gfirst_quad);
 					ipos = ipos*P4EST_FACES + (int) side->face;
 					fcs_arr[ipos] = orient;
 				}
@@ -759,7 +769,8 @@ void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
 		} else {
 			if (!side->is.full.is_ghost) {
 				// local node
-				ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+				ipos = (int) (side->treeid + side->is.full.quadid -
+						gfirst_quad);
 				ipos = ipos*P4EST_FACES + (int) side->face;
 				fcs_arr[ipos] = orient;
 			}
@@ -785,7 +796,8 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 	int il, jl;
 	int ipos, tmin;
 	if (info->tree_boundary){
-		/* face is on the outside of the forest; compare orientation of different trees*/
+		/* face is on the outside of the forest; compare orientation of
+		 * different trees*/
 		for (il = 0; il < nside; ++il) {
 			side = p8est_iter_eside_array_index_int (sides, il);
 			if (side->is_hanging) {
@@ -793,7 +805,8 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 				for (jl = 0; jl < 2; jl++) {
 					if (!side->is.hanging.is_ghost[jl]){
 						// local node
-						ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+						ipos = (int) (side->treeid + side->is.hanging.quadid[jl] -
+								gfirst_quad);
 						ipos = ipos*P8EST_EDGES + (int) side->edge;
 						edg_arr[ipos] = (int) side->orientation;
 					}
@@ -801,7 +814,8 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 			} else {
 				if (!side->is.full.is_ghost) {
 					// local node
-					ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+					ipos = (int) (side->treeid + side->is.full.quadid -
+							gfirst_quad);
 					ipos = ipos*P8EST_EDGES + (int) side->edge;
 					edg_arr[ipos] = (int) side->orientation;
 				}
@@ -816,7 +830,8 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 				for (jl = 0; jl < 2; jl++) {
 					if (!side->is.hanging.is_ghost[jl]){
 						// local node
-						ipos = (int) (side->treeid + side->is.hanging.quadid[jl] - gfirst_quad);
+						ipos = (int) (side->treeid +
+								side->is.hanging.quadid[jl] - gfirst_quad);
 						ipos = ipos*P8EST_EDGES + (int) side->edge;
 						edg_arr[ipos] = 0;
 					}
@@ -824,7 +839,8 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 			} else {
 				if (!side->is.full.is_ghost) {
 					// local node
-					ipos = (int) (side->treeid + side->is.full.quadid - gfirst_quad);
+					ipos = (int) (side->treeid + side->is.full.quadid -
+							gfirst_quad);
 					ipos = ipos*P8EST_EDGES + (int) side->edge;
 					edg_arr[ipos] = 0;
 				}
@@ -835,13 +851,17 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 #endif
 
 /* get face and edge alignment */
-void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn, int * lnelt) {
+void fp4est_msh_get_algn(int * fcs_algn, int *const edg_algn,
+		int * lnelt) {
 	*lnelt = (int) tree_nek->local_num_quadrants;
 #ifdef P4_TO_P8
-	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL, algn_fcs_get, NULL, NULL);
-	p4est_iterate(tree_nek, ghost_nek,(void *) edg_algn, NULL, NULL, algn_edg_get, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL,
+			algn_fcs_get, NULL, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) edg_algn, NULL,
+			NULL, algn_edg_get, NULL);
 #else
-	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL, algn_fcs_get, NULL);
+	p4est_iterate(tree_nek, ghost_nek,(void *) fcs_algn, NULL,
+			algn_fcs_get, NULL);
 #endif
 }
 
@@ -879,19 +899,23 @@ void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
 			kl=il*P4EST_FACES +jl;
 			// half-size neighbour; multiple entries per face
 			if (mesh_nek->quad_to_face[kl]<0){
-				halfentries = (p4est_locidx_t *) sc_array_index (halfs,mesh_nek->quad_to_quad[kl]);
+				halfentries = (p4est_locidx_t *)
+						sc_array_index (halfs,mesh_nek->quad_to_quad[kl]);
 				for(hl=0;hl<P4EST_HALF;++hl){
 					element = (int) halfentries[hl];
 					// is the element non local
 					if (element>=el_local){
 						element = element - el_local;
-						lquad = (p4est_quadrant_t *) sc_array_index (ghosts,element);
+						lquad = (p4est_quadrant_t *)
+								sc_array_index (ghosts,element);
 						node = (int) mesh_nek->ghost_to_proc[element];
 						element = (int) lquad->p.piggy3.local_num;
-						element =  element + (int) tree_nek->global_first_quadrant[node];
+						element =  element +
+								(int) tree_nek->global_first_quadrant[node];
 					}
 					else{
-						element =  tree_nek->global_first_quadrant[rank] +  element;
+						element =  tree_nek->global_first_quadrant[rank] +
+								element;
 					}
 					graph[offset] = element;
 					offset = offset+1;
@@ -927,6 +951,55 @@ void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
 	*node_num = el_count;
 }
 
+/** @brief Iterate over element volumes to transfer element refinement mark
+ *
+ * @details Required by fp4est_refm_put
+ *
+ * @param info
+ * @param user_data
+ */
+void iter_refm(p4est_iter_volume_info_t * info, void *user_data) {
+	user_data_t *data = (user_data_t *) info->quad->p.user_data;
+	int *ref_mark = (int *) user_data;
+
+	// which quad (local and global element number)
+	p4est_tree_t *tree;
+	p4est_locidx_t iwl;
+	int iwlt, iwg;
+	int il;// loop index
+
+	// get quad number
+	tree = p4est_tree_array_index(info->p4est->trees, info->treeid);
+	// local quad number
+	iwl = info->quadid + tree->quadrants_offset;
+	iwlt = (int) iwl;
+	// global quad number
+	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+
+    // correct global element number on nek5000 side if necessary; it can happen
+    // if .rea file was used for mesh generation
+    if(data->gln_el == -1){
+            data->gln_el = iwg;
+            data->gln_parent = -1;
+            for(il=0;il<P4EST_CHILDREN;il++){
+                    data->gln_children[il] = -1;
+            }
+    }
+
+    // refinement mark for given quad
+    data->ref_mark = ref_mark[iwlt];
+}
+
+// fill ref_mark in p4est block
+void fp4est_refm_put(int * ref_mark) {
+#ifdef P4_TO_P8
+	p4est_iterate(tree_nek, ghost_nek,(void *) ref_mark, iter_refm,
+			NULL, NULL, NULL);
+#else
+	p4est_iterate(tree_nek, ghost_nek,(void *) ref_mark, iter_refm,
+			NULL, NULL);
+#endif
+}
 
 #if 0
 	//int8_t ifm, ifmt;
@@ -940,22 +1013,6 @@ void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
 	//p4est_ghost_t *ghost_layer = (p4est_ghost_t *) info->ghost_layer;
 	//p4est_quadrant_t *quad;
 	//int *ghost_to_proc = (int *) mesh_nek->ghost_to_proc;
-
-	// external function to collect element data
-	extern void nek_get_msh_dat(int * iwt, int * iwq, int * imsh, int * igrp,
-			int * level, char (*)[N_PSCL + 2][6][3],
-			double (*)[N_PSCL + 2][6][5], int (*)[6]);
-	// external function to collect mesh refinement history
-	extern void nek_get_msh_hst(int * iwq_o, int * iwq_p,
-			int (*)[P4EST_CHILDREN]);
-
-	// transfer mesh data to Nek5000
-	nek_get_msh_dat(&iwlt, &iwg, &data->imsh, &data->igrp, &level, &data->cbc,
-			&data->bc, &data->crv);
-
-	// transfer refinement history to Nek5000
-	nek_get_msh_hst(&data->gln_el, &data->gln_parent, &data->gln_children);
-
 
 	// check connectivity
 	for (ifc = 0; ifc < P4EST_FACES; ifc++) {
