@@ -291,7 +291,7 @@
 !
       if (PARAM(32).gt.0) NFLDT = IBC + PARAM(32)-1
 
-!     it must done afrer rdparam is executed
+!     this must done afrer rdparam is executed
 !     set max refinement level
       NP4_LMAX = int(abs(PARAM(35)))
 
@@ -307,6 +307,9 @@
 
 !     get global max element level
       NP4_MLEV = iglmax(NP4_MLEV,1)
+
+!     check boundary condition mark
+      call fp4est_bc_check(IBC, NFLDT)
 
 !     check if we generate mesh from .rea or .mesh
 !!!      if (nekp4est_ifmesh()) then

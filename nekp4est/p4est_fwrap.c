@@ -51,6 +51,7 @@ static p4est_mesh_t *mesh_nek = NULL; /**< Nek5000 mesh structure */
 static p4est_ghost_t *ghost_nek = NULL; /**< Nek5000 ghost zone structure */
 static p4est_nodes_t *nodes_nek = NULL; /**< Nek5000 vertex numbering structure */
 static p4est_lnodes_t *lnodes_nek = NULL; /**< Nek5000 GLL node numbering structure */
+static user_data_t *ghost_data = NULL; /**< user data for ghost cells */
 
 /*------------------------------------------------------------------------------
  * internal subroutines for interaction with Fortran
@@ -176,9 +177,7 @@ void fp4est_cnn_new(int * num_vertices, int * num_trees,
 }
 
 void fp4est_cnn_del() {
-	if (connect_nek) {
-		p4est_connectivity_destroy(connect_nek);
-	}
+	if (connect_nek) p4est_connectivity_destroy(connect_nek);
 }
 
 void fp4est_cnn_attr(int * enable_tree_attr) {
@@ -210,9 +209,7 @@ void fp4est_tree_new(MPI_Fint * fmpicomm, int * min_level) {
 }
 
 void fp4est_tree_del() {
-	if (tree_nek) {
-		p4est_destroy(tree_nek);
-	}
+	if (tree_nek) p4est_destroy(tree_nek);
 }
 
 void fp4est_tree_valid(int * is_valid) {
@@ -233,33 +230,35 @@ void fp4est_tree_load(MPI_Fint * fmpicomm, int *load_data, char * filename,
 
 /* tree and grid info */
 void fp4est_ghost_new() {
+	if (ghost_nek) p4est_ghost_destroy(ghost_nek);
 	ghost_nek = p4est_ghost_new(tree_nek, P4EST_CONNECT_FULL);
+	/* ghost data */
+	if (ghost_data) P4EST_FREE(ghost_data);
+	ghost_data = P4EST_ALLOC (user_data_t, ghost_nek->ghosts.elem_count);
+	p4est_ghost_exchange_data (tree_nek, ghost_nek, ghost_data);
 }
 
 void fp4est_ghost_del() {
-	if (ghost_nek) {
-		p4est_ghost_destroy(ghost_nek);
-	}
+	if (ghost_nek) p4est_ghost_destroy(ghost_nek);
+	if (ghost_data) P4EST_FREE(ghost_data);
 }
 
 void fp4est_mesh_new() {
+	if (mesh_nek) p4est_mesh_destroy(mesh_nek);
 	mesh_nek = p4est_mesh_new(tree_nek, ghost_nek, P4EST_CONNECT_FULL);
 }
 
 void fp4est_mesh_del() {
-	if (mesh_nek) {
-		p4est_mesh_destroy(mesh_nek);
-	}
+	if (mesh_nek) p4est_mesh_destroy(mesh_nek);
 }
 
 void fp4est_nodes_new() {
+	if (nodes_nek) p4est_nodes_destroy(nodes_nek);
 	nodes_nek = p4est_nodes_new(tree_nek, ghost_nek);
 }
 
 void fp4est_nodes_del() {
-	if (nodes_nek) {
-		p4est_nodes_destroy(nodes_nek);
-	}
+	if (nodes_nek) p4est_nodes_destroy(nodes_nek);
 }
 
 void fp4est_lnodes_new() {
@@ -267,13 +266,12 @@ void fp4est_lnodes_new() {
 	/* I set degree to -N_DIM to be able to distinguish between vertices, edges and faces.
 	 * Element interior is discarded. */
 	ldgr = -N_DIM;
+	if (lnodes_nek) p4est_lnodes_destroy(lnodes_nek);
 	lnodes_nek = p4est_lnodes_new(tree_nek, ghost_nek, ldgr);
 }
 
 void fp4est_lnodes_del() {
-	if (lnodes_nek) {
-		p4est_lnodes_destroy(lnodes_nek);
-	}
+	if (lnodes_nek) p4est_lnodes_destroy(lnodes_nek);
 }
 
 /* nekp4est internal load balance */
@@ -712,7 +710,7 @@ void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
 	int iref, pref, pset, ipos;
 	int8_t face[2], ftmp;
 	if (info->tree_boundary&&orient){
-		/* face is on the outside of the forest; compare orientation of different trees*/
+		/* face is on the outside of the tree; compare orientation of different trees*/
 		/* find the reference side; lowest face number */
 		P4EST_ASSERT (nside <= 2);
 		for (il = 0; il < nside; ++il) {
@@ -744,7 +742,7 @@ void algn_fcs_get(p4est_iter_face_info_t * info, void *user_data) {
 		}
 
 	} else {
-		/* face is on the interior of the forest or orientation == 0;
+		/* face is on the interior of the tree or orientation == 0;
 		 * all quads aligned */
 		iref = nside +1;
 	}
@@ -796,7 +794,7 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 	int il, jl;
 	int ipos, tmin;
 	if (info->tree_boundary){
-		/* face is on the outside of the forest; compare orientation of
+		/* face is on the outside of the tree; compare orientation of
 		 * different trees*/
 		for (il = 0; il < nside; ++il) {
 			side = p8est_iter_eside_array_index_int (sides, il);
@@ -822,7 +820,7 @@ void algn_edg_get(p8est_iter_edge_info_t * info, void *user_data) {
 			}
 		}
 	} else {
-		/* edge is on the interior of the forest; all quads are aligned */
+		/* edge is on the interior of the tree; all quads are aligned */
 		for (il = 0; il < nside; ++il) {
 			side = p8est_iter_eside_array_index_int (sides, il);
 			if (side->is_hanging) {
@@ -990,7 +988,7 @@ void iter_refm(p4est_iter_volume_info_t * info, void *user_data) {
     data->ref_mark = ref_mark[iwlt];
 }
 
-// fill ref_mark in p4est block
+/* fill ref_mark in p4est block */
 void fp4est_refm_put(int * ref_mark) {
 #ifdef P4_TO_P8
 	p4est_iterate(tree_nek, ghost_nek,(void *) ref_mark, iter_refm,
@@ -1001,201 +999,292 @@ void fp4est_refm_put(int * ref_mark) {
 #endif
 }
 
-#if 0
-	//int8_t ifm, ifmt;
-	//p4est_locidx_t icl;
+/** @brief Iterate over faces to correct Nek5000 boundary conditions
+ *
+ * @details Required by fp4est_bc_check
+ *
+ * @param info
+ * @param user_data
+ */
+void iter_bc_chk(p4est_iter_face_info_t * info, void *user_data) {
+	int *fldn = (int *) user_data;
+	user_data_t *data;
 
-	// to correct element connectivity
-	// I check only E (element) and P (periodic) b.c.
-	//p4est_locidx_t *quad_to_quad = (p4est_locidx_t *) mesh_nek->quad_to_quad;
-	//int8_t *quad_to_face = (int8_t *) mesh_nek->quad_to_face;
-	// quads on different processor
-	//p4est_ghost_t *ghost_layer = (p4est_ghost_t *) info->ghost_layer;
-	//p4est_quadrant_t *quad;
-	//int *ghost_to_proc = (int *) mesh_nek->ghost_to_proc;
+	int mpirank = info->p4est->mpirank;
+	p4est_gloidx_t gfirst_quad =  info->p4est->global_first_quadrant[mpirank];
 
-	// check connectivity
-	for (ifc = 0; ifc < P4EST_FACES; ifc++) {
-		ic = iwlt * P4EST_FACES + ifc;
-		// is it inner or periodic face
-		if (iwl == quad_to_quad[ic] && ifc == (int) quad_to_face[ic]) {
-			// not inner or periodic face
-			for (ifl = trans_data->ibc; ifl <= trans_data->ebc; ++ifl) {
-				// skip velocity bc for T-type mesh
-				if (data->imsh && ifl == NP4_VFLD) continue;
-				//check connection type (should not be E or P)
-				if (data->cbc[ifl][ifc][2] == ' '
-						&& data->cbc[ifl][ifc][1] == ' '
-						&& (data->cbc[ifl][ifc][0] == 'E'
-								|| data->cbc[ifl][ifc][0] == 'P')) {
-					printf("Connectivity error: %i %i %i %i %c%c%c\n",
-							tree_nek->mpirank, iwl, ifc, ifl,
-							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
-							data->cbc[ifl][ifc][2]);
-					printf("internal/external face mismatch.\n");
-					SC_ABORT("Aborting: iter_msh_dat\n");
-				} else {
-					ic = ((ifl*trans_data->lelt + iwlt)*6+ifc)*5;
-					for (il = 0; il < 5; il++) {
-						trans_data->bc[ic+il] = data->bc[ifl][ifc][il];
-					}
-				}
-			}
+	sc_array_t *sides = &(info->sides);
+	p4est_iter_face_side_t *side;
+	int nside = (int) sides->elem_count;
+
+
+	int il, jl, kl, ifl; // loop index
+	int iwl; // global quad number
+	int face; // quad face
+	int imsh[2]; // mesh type mark
+
+	if (info->tree_boundary) {
+		/* Face is on the outside of the tree; it can be any type of boundary
+		 * condition. V-type type mesh can have external bc inside the mesh if
+		 * a neighbor is T-type quad.
+		 */
+		P4EST_ASSERT (nside <= 2);
+		if (nside == 1) {
+			/* external face; no E, P bc */
+			side = p4est_iter_fside_array_index_int (sides, 0);
+			face = (int) side->face;
+			if (side->is_hanging) {
+				/* hanging face */
+				for (jl = 0; jl < P4EST_HALF; jl++) {
+					if (!side->is.hanging.is_ghost[jl]) {
+						/* local node */
+						data = (user_data_t *) side->is.hanging.quad[jl]->p.user_data;
+						/* loop over fluids */
+						for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+							/* skip velocity bc for T-type mesh */
+							if (data->imsh && ifl == NP4_VFLD) continue;
+							/* check connection type (should not be E or P) */
+							if (data->cbc[ifl][face][2] == ' '
+									&& data->cbc[ifl][face][1] == ' '
+											&& (data->cbc[ifl][face][0] == 'E'
+													|| data->cbc[ifl][face][0] == 'P')) {
+								iwl = (int) (gfirst_quad + side->treeid + side->is.hanging.quadid[jl]);
+								printf("Connectivity error: %i %i %i %i %c%c%c\n",
+										tree_nek->mpirank, iwl, face, ifl,
+										data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+										data->cbc[ifl][face][2]);
+								printf("external face marked as internal.\n");
+								SC_ABORT("Aborting: iter_bc_chk\n");
+							}
+						} // fld loop
+					} // is ghost
+				} // children loop
+
+			} else {
+				if (!side->is.full.is_ghost) {
+					/* local node */
+					data = (user_data_t *) side->is.full.quad->p.user_data;
+					/* loop over fluids */
+					for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+						/* skip velocity bc for T-type mesh */
+						if (data->imsh && ifl == NP4_VFLD) continue;
+						/* check connection type (should not be E or P) */
+						if (data->cbc[ifl][face][2] == ' '
+								&& data->cbc[ifl][face][1] == ' '
+										&& (data->cbc[ifl][face][0] == 'E'
+												|| data->cbc[ifl][face][0] == 'P')) {
+							iwl = (int) (gfirst_quad + side->treeid + side->is.full.quadid);
+							printf("Connectivity error: %i %i %i %i %c%c%c\n",
+									tree_nek->mpirank, iwl, face, ifl,
+									data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+									data->cbc[ifl][face][2]);
+							printf("external face marked as internal.\n");
+							SC_ABORT("Aborting: iter_bc_chk\n");
+						}
+					} // fld loop
+				} // is ghost
+			} // hanging
+
 		} else {
-			// inner or periodic face
-			for (ifl = trans_data->ibc; ifl <= trans_data->ebc; ++ifl) {
-				// skip velocity bc for T-type mesh
-			    if (data->imsh && ifl == NP4_VFLD) continue;
-				// check connection type (in most cases should be should be E or P, however V-type
-			    // mesh is subset of T-mesh, so velocity bc can differ in this case)
-				// is the faces marked as internal
-				if (data->cbc[ifl][ifc][2] == ' '
-						&& data->cbc[ifl][ifc][1] == ' '
-						&& (data->cbc[ifl][ifc][0] == 'E'
-								|| data->cbc[ifl][ifc][0] == 'P')) {
-					//set neighbor global number
-					icl = quad_to_quad[ic];
-					if (icl < mesh_nek->local_num_quadrants) {
-						// local quad
-						data->bc[ifl][ifc][0] =
-								(double) icl
-										+ tree_nek->global_first_quadrant[tree_nek->mpirank]
-										+ 1;
+			/* internal face; any face type possible */
+			/* collect quad type; for different values of imsh V-type
+			 * elements should point to external bc
+			 */
+			imsh[0] = 0;
+			imsh[1] = 0;
+			for (il = 0; il < nside; ++il) {
+				side = p4est_iter_fside_array_index_int (sides, il);
+				if (side->is_hanging) {
+					/* imsh for all children is the same */
+					if (side->is.hanging.is_ghost[0]) {
+						data = (user_data_t *) &ghost_data[side->is.hanging.quadid[0]];
 					} else {
-						// remote quad
-						icl = icl - mesh_nek->local_num_quadrants;
-						quad = p4est_quadrant_array_index(&ghost_layer->ghosts,
-								(size_t) icl);
-						data->bc[ifl][ifc][0] =
-								(double) quad->p.piggy3.local_num
-										+ tree_nek->global_first_quadrant[ghost_to_proc[icl]]
-										+ 1;
+						data = (user_data_t *) side->is.hanging.quad[0]->p.user_data;
 					}
-					//set neighbour face
-					ifm = quad_to_face[ic];
-#ifdef P4_TO_P8
-					if (ifm >= 0 && ifm <= 23) {
-						// equal face sizes
-						data->bc[ifl][ifc][4] = 0.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-					} else if (ifm >= 24 && ifm <= 119) {
-						// Double-sized neighbour; marked 'J  ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// double-sized neighbour
-						data->bc[ifl][ifc][4] = 1.0;
-						// position
-						ifmt = ifm / 24;
-						data->bc[ifl][ifc][3] = (double) ifmt - 1;
-						// orientation
-						ifm = ifm - 24 * ifmt;
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-					} else if (ifm >= -24 && ifm <= -1) {
-						// Half-sized neighbour; marked 'SP ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// half-sized neighbour
-						data->bc[ifl][ifc][4] = 2.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifm = ifm + 24;
-						ifmt = ifm / P4EST_FACES; // orientation r
-						ifm = ifm % P4EST_FACES;  // neighbour face
-						// find permutation
-						ref = p8est_face_permutation_refs[ifc][ifm];
-						set = p8est_face_permutation_sets[ref][ifmt];
-						data->bc[ifl][ifc][2] = (double) set;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1 + ifm;
-						// element number
-						data->bc[ifl][ifc][0] = 0.0;
-					} else {
-						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
-					}
-#else
-					if (ifm>=0&&ifm<=7) {
-						// equal face sizes
-						data->bc[ifl][ifc][4] = 0.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-					}
-					else if(ifm>=8&&ifm<=23) {
-						// Double-sized neighbour; marked 'J  ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// double-sized neighbour
-						data->bc[ifl][ifc][4] = 1.0;
-						// position
-						ifmt = ifm / 8;
-						data->bc[ifl][ifc][3] = (double) ifmt -1;
-						// orientation
-						ifm = ifm - 8*ifmt;
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-					}
-					else if(ifm>=-8&&ifm<=-1) {
-						// Half-sized neighbour; marked 'SP ' in original nek5000
-						// I mark them 'E  ' or 'P  ' setting last parameter in bc array to 1
-						// important for subroutines:
-						//		get_fast_bc (no modification necessary)
-						//		and in dssum.f
-						// half-sized neighbour
-						data->bc[ifl][ifc][4] = 2.0;
-						// position
-						data->bc[ifl][ifc][3] = 0.0;
-						// orientation
-						ifm = ifm + 8;
-						ifmt = ifm / P4EST_FACES;
-						data->bc[ifl][ifc][2] = (double) ifmt;
-						// face number
-						data->bc[ifl][ifc][1] = (double) 1+ ifm % P4EST_FACES;
-						// element number
-						data->bc[ifl][ifc][0] = 0.0;
-					}
-					else {
-						SC_ABORT("Wrong face number, aborting: iter_mshv\n");
-					}
-#endif
 				} else {
-					// not corretly marked inner face
-					printf("Connectivity error: %i %i %i %i %c%c%c\n",
-							tree_nek->mpirank, iwl, ifc, ifl,
-							data->cbc[ifl][ifc][0], data->cbc[ifl][ifc][1],
-							data->cbc[ifl][ifc][2]);
-					SC_ABORT("Aborting: iter_msh_dat\n");
+					if (side->is.full.is_ghost) {
+						data = (user_data_t *) &ghost_data[side->is.full.quadid];
+					} else {
+						data = (user_data_t *) side->is.full.quad->p.user_data;
+					}
 				}
-			} // loop over fluids
-		}
-	} // loop over faces
+				imsh[il] = data->imsh;
+			}
+			/* test bc */
+			for (il = 0; il < nside; ++il) {
+				side = p4est_iter_fside_array_index_int (sides, il);
+				face = (int) side->face;
+				if (side->is_hanging) {
+					/* hanging face */
+					for (jl = 0; jl < P4EST_HALF; jl++) {
+						if (!side->is.hanging.is_ghost[jl]) {
+							/* local node */
+							data = (user_data_t *) side->is.hanging.quad[jl]->p.user_data;
+							/* loop over fluids */
+							for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+								/* skip velocity bc for T-type mesh */
+								if (data->imsh && ifl == NP4_VFLD) continue;
+								/* velocity bc for V-type element neighbor to T-type element
+								 * should not be E or P
+								 */
+								if (imsh[0] != imsh[1] && ifl == NP4_VFLD) {
+									if (data->cbc[ifl][face][2] == ' '
+											&& data->cbc[ifl][face][1] == ' '
+													&& (data->cbc[ifl][face][0] == 'E'
+															|| data->cbc[ifl][face][0] == 'P')) {
+										iwl = (int) (gfirst_quad + side->treeid + side->is.hanging.quadid[jl]);
+										printf("Connectivity error: %i %i %i %i %c%c%c\n",
+												tree_nek->mpirank, iwl, face, ifl,
+												data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+												data->cbc[ifl][face][2]);
+										printf("velocity external face marked as internal.\n");
+										SC_ABORT("Aborting: iter_bc_chk\n");
+									}
+								} else {
+									/* not velocity or not V-T meshes boundary - all
+									 * internal elements
+									 */
+									if (data->cbc[ifl][face][2] == ' '
+											&& data->cbc[ifl][face][1] == ' '
+													&& (data->cbc[ifl][face][0] == 'E'
+															|| data->cbc[ifl][face][0] == 'P')) {
+										/* For internal faces I do not store neither global quad number
+										 * nor face number of the neighbor, as Nek5000 data structure
+										 * does not allow to keep all the information for hanging nodes
+										 */
+										for (kl=0; kl < 5; kl++) data->bc[ifl][face][kl] = 0.0;
+									} else {
+										iwl = (int) (gfirst_quad + side->treeid + side->is.hanging.quadid[jl]);
+										printf("Connectivity error: %i %i %i %i %c%c%c\n",
+												tree_nek->mpirank, iwl, face, ifl,
+												data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+												data->cbc[ifl][face][2]);
+										printf("internal face marked as external.\n");
+										SC_ABORT("Aborting: iter_bc_chk\n");
+									}
+								}
+							} // fld loop
+						} // is ghost
+					} // children loop
+
+				} else {
+					if (!side->is.full.is_ghost) {
+						/* local node */
+						data = (user_data_t *) side->is.full.quad->p.user_data;
+						/* loop over fluids */
+						for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+							/* skip velocity bc for T-type mesh */
+							if (data->imsh && ifl == NP4_VFLD) continue;
+							/* velocity bc for V-type element neighbor to T-type element
+							 * should not be E or P
+							 */
+							if (imsh[0] != imsh[1] && ifl == NP4_VFLD) {
+								if (data->cbc[ifl][face][2] == ' '
+										&& data->cbc[ifl][face][1] == ' '
+												&& (data->cbc[ifl][face][0] == 'E'
+														|| data->cbc[ifl][face][0] == 'P')) {
+									iwl = (int) (gfirst_quad + side->treeid + side->is.full.quadid);
+									printf("Connectivity error: %i %i %i %i %c%c%c\n",
+											tree_nek->mpirank, iwl, face, ifl,
+											data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+											data->cbc[ifl][face][2]);
+									printf("velocity external face marked as internal.\n");
+									SC_ABORT("Aborting: iter_bc_chk\n");
+								}
+							} else {
+								/* not velocity or not V-T meshes boundary - all
+								 * internal elements
+								 */
+								if (data->cbc[ifl][face][2] == ' '
+										&& data->cbc[ifl][face][1] == ' '
+												&& (data->cbc[ifl][face][0] == 'E'
+														|| data->cbc[ifl][face][0] == 'P')) {
+									/* For internal faces I do not store neither global quad number
+									 * nor face number of the neighbor, as Nek5000 data structure
+									 * does not allow to keep all the information for hanging nodes
+									 */
+									for (kl=0; kl < 5; kl++) data->bc[ifl][face][kl] = 0.0;
+								} else {
+									iwl = (int) (gfirst_quad + side->treeid + side->is.full.quadid);
+									printf("Connectivity error: %i %i %i %i %c%c%c\n",
+											tree_nek->mpirank, iwl, face, ifl,
+											data->cbc[ifl][face][0], data->cbc[ifl][face][1],
+											data->cbc[ifl][face][2]);
+									printf("internal face marked as external.\n");
+									SC_ABORT("Aborting: iter_bc_chk\n");
+								}
+							}
+						} // fld loop
+					} // is ghost
+				} // hanging
+			} // side loop
+		} // forest internal/external face
+	} else {
+		/* face is on the interior of the tree; all faces are E (or J in Nek5000
+		 * notation; I do not use J as this could cause problems with cyclic
+		 * bc; see Nek500 routines check_cyclic, rotate_cyc)
+		 *  as even
+		 * for V-type mesh external and periodic boundary can be defined on
+		 * tree faces only
+		 */
+		P4EST_ASSERT (nside == 2);
+		for (il = 0; il < nside; ++il) {
+			side = p4est_iter_fside_array_index_int (sides, il);
+			face = (int) side->face;
+			if (side->is_hanging) {
+				/* hanging face */
+				for (jl = 0; jl < P4EST_HALF; jl++) {
+					if (!side->is.hanging.is_ghost[jl]) {
+						// local node
+						data = (user_data_t *) side->is.hanging.quad[jl]->p.user_data;
+						// loop over fluids
+						for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+							/* skip velocity bc for T-type mesh */
+							if (data->imsh && ifl == NP4_VFLD) continue;
+							data->cbc[ifl][face][0] = 'E';
+							data->cbc[ifl][face][1] = ' ';
+							data->cbc[ifl][face][2] = ' ';
+							/* For internal faces I do not store neither global quad number
+							 * nor face number of the neighbor, as Nek5000 data structure
+							 * does not allow to keep all the information for hanging nodes
+							 */
+							for (kl=0; kl < 5; kl++) data->bc[ifl][face][kl] = 0.0;
+						} // fld loop
+					} // is ghost
+				} // children loop
+
+			} else {
+				if (!side->is.full.is_ghost) {
+					/* local node */
+					data = (user_data_t *) side->is.full.quad->p.user_data;
+					/* loop over fluids */
+					for (ifl = fldn[0]; ifl <= fldn[1]; ifl++) {
+						/* skip velocity bc for T-type mesh */
+						if (data->imsh && ifl == NP4_VFLD) continue;
+						data->cbc[ifl][face][0] = 'E';
+						data->cbc[ifl][face][1] = ' ';
+						data->cbc[ifl][face][2] = ' ';
+						/* For internal faces I do not store neither global quad number
+						 * nor face number of the neighbor, as Nek5000 data structure
+						 * does not allow to keep all the information for hanging nodes
+						 */
+						for (kl=0; kl < 5; kl++) data->bc[ifl][face][kl] = 0.0;
+					} // fld loop
+				} // is ghost
+			} // hanging
+		} // side loop
+	} // tree internal/external
+
+}
+
+/* Check boundary conditions for V- and T-type mesh */
+void fp4est_bc_check(int * ibc, int * ebc) {
+	int fldn[2];
+	fldn[0] = *ibc;
+	fldn[1] = *ebc;
+#ifdef P4_TO_P8
+	p4est_iterate(tree_nek, ghost_nek, (void *) &fldn, NULL, iter_bc_chk, NULL, NULL);
+#else
+	p4est_iterate(tree_nek, ghost_nek, (void *) &fldn, NULL, iter_bc_chk, NULL);
 #endif
+}

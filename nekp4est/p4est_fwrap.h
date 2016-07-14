@@ -65,6 +65,7 @@
 #define fp4est_msh_get_algn  FORTRAN_NAME(fp4est_msh_get_algn,FP4EST_MSH_GET_ALGN)
 #define fp4est_msh_get_graph FORTRAN_NAME(fp4est_msh_get_graph,FP4EST_MSH_GET_GRAPH)
 #define fp4est_refm_put      FORTRAN_NAME(fp4est_refm_put,FP4EST_REFM_PUT)
+#define fp4est_bc_check      FORTRAN_NAME(fp4est_bc_check,FP4EST_BC_CHECK)
 
 /** Data type for user variables; required by p4est */
 typedef struct user_data_s {
@@ -79,7 +80,7 @@ typedef struct user_data_s {
 	/* @{ */
 	double x[P4EST_CHILDREN], y[P4EST_CHILDREN], z[P4EST_CHILDREN]; /**< vertices of the element */
 	/* @} */
-	int ref_mark; /**< integer to store refinement mark; 0 - nothing, 1 - refine, -1 coarsen */
+	int ref_mark; /**< integer to store refinement mark; definition in nekp4est.h */
 	// to keep track of changes of nek5000 global element numbering
 	int gln_el; /**< old element global numbering; nek5000 side */
 	int gln_parent; /**< old parent global numbering; nek5000 side */
@@ -360,6 +361,14 @@ void fp4est_msh_get_graph(int * node_num, int * graph, int * graph_offset)
  * @param ref_mark   refinement mark array
  */
 void fp4est_refm_put(int * ref_mark)
+;
+
+/** Check boundary conditions for V- and T-type mesh
+ *
+ * @param ibc    starting position in cb and cbc arrays
+ * @param ebc    ending position in cb and cbc arrays
+ */
+void fp4est_bc_check(int * ibc, int * ebc)
 ;
 
 #endif /* NEKP4EST_P4EST_FWRAP_H_ */
