@@ -36,11 +36,6 @@
       parameter (NP4_NEDG=max(0,12*(LDIM-2)))  !<  number of edges
       parameter (NP4_NMAX=max(NP4_NVRT,NP4_NEDG))  !< max value for array alocation
 
-!     local element count (V mesh)
-!     variable for element counting
-      integer EL_COUNT
-      common /nekp4est_elem_get/ EL_COUNT
-
 !     position of data in cbc and cb arrays
       integer IBC, NFLDT
 !     this common block is shared with p4est wrapper
@@ -102,6 +97,7 @@
 
 !     arrays for error estimator
 !     NP4_MARK - integer mark to refine (1), coarsen (-1) or leave unchanged (0) given block
+!                for more options see nekp4est.h
       integer NP4_MARK(LELT)
 !     element level; can be used during refinement/coarsening 
       integer NP4_LEVEL(LELT)

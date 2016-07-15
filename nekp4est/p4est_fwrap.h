@@ -26,36 +26,39 @@
  */
 /* wrappers */
 /* initialize */
-#define fp4est_init         FORTRAN_NAME(fp4est_init,FP4EST_INIT)
+#define fp4est_init          FORTRAN_NAME(fp4est_init,FP4EST_INIT)
 /* Connectivity */
-#define fp4est_cnn_new      FORTRAN_NAME(fp4est_cnn_new,FP4EST_CNN_NEW)
-#define fp4est_cnn_del      FORTRAN_NAME(fp4est_cnn_del,FP4EST_CNN_DEL)
-#define fp4est_cnn_attr     FORTRAN_NAME(fp4est_cnn_attr,FP4EST_CNN_ATTR)
-#define fp4est_cnn_valid    FORTRAN_NAME(fp4est_cnn_valid,FP4EST_CNN_VALID)
-#define fp4est_cnn_compl    FORTRAN_NAME(fp4est_cnn_compl,FP4EST_CNN_COMPL)
-#define fp4est_cnn_save     FORTRAN_NAME(fp4est_cnn_save,FP4EST_CNN_SAVE)
-#define fp4est_cnn_load     FORTRAN_NAME(fp4est_cnn_load,FP4EST_CNN_LOAD)
+#define fp4est_cnn_new       FORTRAN_NAME(fp4est_cnn_new,FP4EST_CNN_NEW)
+#define fp4est_cnn_del       FORTRAN_NAME(fp4est_cnn_del,FP4EST_CNN_DEL)
+#define fp4est_cnn_attr      FORTRAN_NAME(fp4est_cnn_attr,FP4EST_CNN_ATTR)
+#define fp4est_cnn_valid     FORTRAN_NAME(fp4est_cnn_valid,FP4EST_CNN_VALID)
+#define fp4est_cnn_compl     FORTRAN_NAME(fp4est_cnn_compl,FP4EST_CNN_COMPL)
+#define fp4est_cnn_save      FORTRAN_NAME(fp4est_cnn_save,FP4EST_CNN_SAVE)
+#define fp4est_cnn_load      FORTRAN_NAME(fp4est_cnn_load,FP4EST_CNN_LOAD)
 /* tree_ management */
-#define fp4est_tree_new     FORTRAN_NAME(fp4est_tree_new,FP4EST_TREE_NEW)
-#define fp4est_tree_del     FORTRAN_NAME(fp4est_tree_del,FP4EST_TREE_DEL)
-#define fp4est_tree_valid   FORTRAN_NAME(fp4est_tree_valid,FP4EST_TREE_VALID)
-#define fp4est_tree_save    FORTRAN_NAME(fp4est_tree_save,FP4EST_TREE_SAVE)
-#define fp4est_tree_load    FORTRAN_NAME(fp4est_tree_load,FP4EST_TREE_LOAD)
+#define fp4est_tree_new      FORTRAN_NAME(fp4est_tree_new,FP4EST_TREE_NEW)
+#define fp4est_tree_del      FORTRAN_NAME(fp4est_tree_del,FP4EST_TREE_DEL)
+#define fp4est_tree_valid    FORTRAN_NAME(fp4est_tree_valid,FP4EST_TREE_VALID)
+#define fp4est_tree_save     FORTRAN_NAME(fp4est_tree_save,FP4EST_TREE_SAVE)
+#define fp4est_tree_load     FORTRAN_NAME(fp4est_tree_load,FP4EST_TREE_LOAD)
 /* tree and grid info */
-#define fp4est_ghost_new    FORTRAN_NAME(fp4est_ghost_new,FP4EST_GHOST_NEW)
-#define fp4est_ghost_del    FORTRAN_NAME(fp4est_ghost_del,FP4EST_GHOST_DEL)
-#define fp4est_mesh_new     FORTRAN_NAME(fp4est_mesh_new,FP4EST_MESH_NEW)
-#define fp4est_mesh_del     FORTRAN_NAME(fp4est_mesh_del,FP4EST_MESH_DEL)
-#define fp4est_nodes_new    FORTRAN_NAME(fp4est_nodes_new,FP4EST_NODES_NEW)
-#define fp4est_nodes_del    FORTRAN_NAME(fp4est_nodes_del,FP4EST_NODES_DEL)
-#define fp4est_lnodes_new   FORTRAN_NAME(fp4est_lnodes_new,FP4EST_LNODES_NEW)
-#define fp4est_lnodes_del   FORTRAN_NAME(fp4est_lnodes_del,FP4EST_LNODES_DEL)
+#define fp4est_ghost_new     FORTRAN_NAME(fp4est_ghost_new,FP4EST_GHOST_NEW)
+#define fp4est_ghost_del     FORTRAN_NAME(fp4est_ghost_del,FP4EST_GHOST_DEL)
+#define fp4est_mesh_new      FORTRAN_NAME(fp4est_mesh_new,FP4EST_MESH_NEW)
+#define fp4est_mesh_del      FORTRAN_NAME(fp4est_mesh_del,FP4EST_MESH_DEL)
+#define fp4est_nodes_new     FORTRAN_NAME(fp4est_nodes_new,FP4EST_NODES_NEW)
+#define fp4est_nodes_del     FORTRAN_NAME(fp4est_nodes_del,FP4EST_NODES_DEL)
+#define fp4est_lnodes_new    FORTRAN_NAME(fp4est_lnodes_new,FP4EST_LNODES_NEW)
+#define fp4est_lnodes_del    FORTRAN_NAME(fp4est_lnodes_del,FP4EST_LNODES_DEL)
 /* nekp4est internal load balance */
-#define fp4est_part         FORTRAN_NAME(fp4est_part,FP4EST_PART)
+#define fp4est_part          FORTRAN_NAME(fp4est_part,FP4EST_PART)
 /* refinement, coarsening, balance */
+#define fp4est_refine        FORTRAN_NAME(fp4est_refine,FP4EST_REFINE)
+#define fp4est_coarsen       FORTRAN_NAME(fp4est_coarsen,FP4EST_COARSEN)
+#define fp4est_balance       FORTRAN_NAME(fp4est_balance,FP4EST_BALANCE)
 /* I/O (VTK) */
-#define fp4est_vtk_write    FORTRAN_NAME(fp4est_vtk_write,FP4EST_VTK_WRITE)
-#define fp4est_vtk_iscalar  FORTRAN_NAME(fp4est_vtk_iscalar,FP4EST_VTK_ISCALAR)
+#define fp4est_vtk_write     FORTRAN_NAME(fp4est_vtk_write,FP4EST_VTK_WRITE)
+#define fp4est_vtk_iscalar   FORTRAN_NAME(fp4est_vtk_iscalar,FP4EST_VTK_ISCALAR)
 /* routines required by Nek5000 for data exchange */
 #define fp4est_msh_get_size  FORTRAN_NAME(fp4est_msh_get_size,FP4EST_MSH_GET_SIZE)
 #define fp4est_msh_get_dat   FORTRAN_NAME(fp4est_msh_get_dat,FP4EST_MSH_GET_DAT)
@@ -78,7 +81,8 @@ typedef struct user_data_s {
 	char cbc[N_PSCL + 2][6][3]; /**< boundary condition data */
 	double bc[N_PSCL + 2][6][5];
 	/* @{ */
-	double x[P4EST_CHILDREN], y[P4EST_CHILDREN], z[P4EST_CHILDREN]; /**< vertices of the element */
+	double x[P4EST_CHILDREN], y[P4EST_CHILDREN],
+	       z[P4EST_CHILDREN]; /**< vertices of the element */
 	/* @} */
 	int ref_mark; /**< integer to store refinement mark; definition in nekp4est.h */
 	// to keep track of changes of nek5000 global element numbering
@@ -254,7 +258,22 @@ void fp4est_lnodes_del()
 void fp4est_part(int * partforcoarsen)
 ;
 
-/* place for refinement, coarsening and balancing */
+/** Perform tree refinement
+ *
+ * @param max_level    max refinement level
+ */
+void fp4est_refine(int *max_level)
+;
+
+/** Perform tree coarsening
+ */
+void fp4est_coarsen()
+;
+
+/** Perform 2:1 tree balancing
+ */
+void fp4est_balance()
+;
 
 /** Write tree structure to VTK file
  *
@@ -311,8 +330,8 @@ void fp4est_msh_get_dat(int * ibc, int * nfld, int * nelv, int *lelt, int * igrp
  * @param glgl_rfn   element number mapping for refined elements
  * @param glgl_crs   element number mapping for coarsened elements
  */
-void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map, int * glgl_rfn,
-		int * glgl_crs)
+void fp4est_msh_get_hst(int * map_nr, int * rfn_nr, int * crs_nr, int *glgl_map,
+		int * glgl_rfn, int * glgl_crs)
 ;
 
 /** Get global vertex numbering to Nek5000

@@ -44,18 +44,16 @@
 
 #include "p4est_fwrap.h"
 
-/** Global variables */
+/* Global variables
+ *  notice I use tree_nek->user_pointer to store ghost quadrants data
+ */
 static p4est_connectivity_t *connect_nek = NULL; /**< Nek5000 connectivity structure */
 static p4est_t *tree_nek = NULL; /**< Nek5000 tree structure */
 static p4est_mesh_t *mesh_nek = NULL; /**< Nek5000 mesh structure */
 static p4est_ghost_t *ghost_nek = NULL; /**< Nek5000 ghost zone structure */
 static p4est_nodes_t *nodes_nek = NULL; /**< Nek5000 vertex numbering structure */
 static p4est_lnodes_t *lnodes_nek = NULL; /**< Nek5000 GLL node numbering structure */
-static user_data_t *ghost_data = NULL; /**< user data for ghost cells */
 
-/*------------------------------------------------------------------------------
- * internal subroutines for interaction with Fortran
- ------------------------------------------------------------------------------*/
 /** @brief Initialize element data for 0 level tree
  *
  * @details This is dummy routine required by fp4est_tree_new.
@@ -226,6 +224,7 @@ void fp4est_tree_load(MPI_Fint * fmpicomm, int *load_data, char * filename,
 	mpicomm = MPI_Comm_f2c(*fmpicomm);
 	tree_nek = p4est_load_ext(filename, mpicomm, sizeof(user_data_t), *load_data,1,0,
 	NULL, &connect_nek);
+	tree_nek->user_pointer = NULL;
 }
 
 /* tree and grid info */
@@ -233,14 +232,16 @@ void fp4est_ghost_new() {
 	if (ghost_nek) p4est_ghost_destroy(ghost_nek);
 	ghost_nek = p4est_ghost_new(tree_nek, P4EST_CONNECT_FULL);
 	/* ghost data */
-	if (ghost_data) P4EST_FREE(ghost_data);
-	ghost_data = P4EST_ALLOC (user_data_t, ghost_nek->ghosts.elem_count);
-	p4est_ghost_exchange_data (tree_nek, ghost_nek, ghost_data);
+	if (tree_nek->user_pointer) P4EST_FREE(tree_nek->user_pointer);
+	tree_nek->user_pointer = (void *) P4EST_ALLOC (user_data_t, ghost_nek->ghosts.elem_count);
+	p4est_ghost_exchange_data (tree_nek, ghost_nek, (user_data_t *) tree_nek->user_pointer);
 }
 
 void fp4est_ghost_del() {
 	if (ghost_nek) p4est_ghost_destroy(ghost_nek);
-	if (ghost_data) P4EST_FREE(ghost_data);
+	/* ghost data */
+	if (tree_nek->user_pointer) P4EST_FREE(tree_nek->user_pointer);
+	tree_nek->user_pointer = NULL;
 }
 
 void fp4est_mesh_new() {
@@ -263,8 +264,10 @@ void fp4est_nodes_del() {
 
 void fp4est_lnodes_new() {
 	int ldgr;
-	/* I set degree to -N_DIM to be able to distinguish between vertices, edges and faces.
-	 * Element interior is discarded. */
+	/* I set degree to -N_DIM to be able to distinguish between vertices,
+	 * edges and faces.
+	 * Element interior is discarded.
+	 */
 	ldgr = -N_DIM;
 	if (lnodes_nek) p4est_lnodes_destroy(lnodes_nek);
 	lnodes_nek = p4est_lnodes_new(tree_nek, ghost_nek, ldgr);
@@ -279,7 +282,291 @@ void fp4est_part(int * partforcoarsen) {
 	p4est_partition(tree_nek, *partforcoarsen, NULL);
 }
 
-/* refinement, coarsening, balance */
+/* refinement, coarsening, balancing */
+
+/** Mark element for refinement
+ *
+ * @details Required by p4est_refine_ext
+ *
+ * @param p4est
+ * @param which_tree
+ * @param quadrant
+ * @return refinement mark
+ */
+int ref_mark_f (p4est_t * p4est, p4est_topidx_t which_tree,
+                  p4est_quadrant_t * quadrant)
+{
+	user_data_t *data = (user_data_t *) quadrant->p.user_data;
+
+	if (data->ref_mark == NP4_RM_H_REF) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+/** Mark element for coarsening
+ *
+ *  @details Required by p4est_coarsen_ext
+ *
+ * @param p4est
+ * @param which_tree
+ * @param quadrants
+ * @return coarsening mark
+ */
+int crs_mark_f (p4est_t * p4est, p4est_topidx_t which_tree,
+                  p4est_quadrant_t * quadrants[])
+{
+	user_data_t *data;
+	int iwt, id;
+
+	/* check if all the children are coarsened */
+	iwt = 1;
+	for(id=0;id<P4EST_CHILDREN;++id){
+		/* get refinement mark */
+		data = (user_data_t *) quadrants[id]->p.user_data;
+		if (data->ref_mark != NP4_RM_H_CRS) {
+			iwt = 0;
+			break;
+		}
+	}
+	return iwt;
+}
+
+/** Refine/coarsen quadrant
+ *
+ * @details Required by p4est_refine_ext, p4est_coarsen_ext,
+ *  p4est_balance_ext. Performs operations on quad related
+ *  user data.
+ *
+ * @param p4est          forest
+ * @param which_tree     tree number
+ * @param num_outgoing   number of quadrants that are being replaced
+ * @param outgoing       replaced quads
+ * @param num_incoming   number of quadrants that are being added
+ * @param incoming       added quads
+ */
+void  quad_replace (p4est_t * p4est, p4est_topidx_t which_tree,
+		int num_outgoing, p4est_quadrant_t * outgoing[],
+		int num_incoming, p4est_quadrant_t * incoming[]) {
+
+	int id, il, jl, kl; // loop index
+	int id_ch[P4EST_CHILDREN]; // child id
+	user_data_t * parent, * child;
+	p4est_quadrant_t tmp_q;
+
+	if (num_outgoing == P4EST_CHILDREN && num_incoming == 1) {
+		/* this is coarsening */
+		/* get child id */
+		for(id=0;id<P4EST_CHILDREN;id++){
+			id_ch[id] = p4est_quadrant_child_id (outgoing[id]);
+		}
+		/* Merge element data.
+		 * I'm lazy here and assume refinement just copy curvature and
+		 * BC data from parent at external faces. It means I expect
+		 * face value for neighboring elements to be the same, so
+		 * it is enough to take values of even and odd faces from
+		 * first and last element respectively.
+		 * There are two loops as p4est does not give information
+		 * about ordering of outgoing quads.
+		 */
+		parent = (user_data_t *) incoming[0]->p.user_data;
+		for(id=0;id<P4EST_CHILDREN;id++){
+			if (id_ch[id] == 0) {
+				/* first element; copy all data */
+				child = (user_data_t *) outgoing[id]->p.user_data;
+				memcpy (parent, child, p4est->data_size);
+				break;
+			}
+		}
+		for(id=0;id<P4EST_CHILDREN;id++){
+			if(id_ch[id] == (P4EST_CHILDREN-1)) {
+				/* last element; copy faces 1, 3 and 5 */
+				child = (user_data_t *) outgoing[id]->p.user_data;
+				for(il=1;il<P4EST_FACES;il=il+2){
+					/* curvature */
+					parent->crv[il] = child->crv[il];
+					/* boundary conditions */
+					for(jl=0;jl<N_PSCL+2;jl++){
+						for(kl=0;kl<3;++kl){
+							parent->cbc[jl][il][kl] = child->cbc[jl][il][kl];
+						}
+						for(kl=0;kl<5;++kl){
+							parent->bc[jl][il][kl] = child->bc[jl][il][kl];
+						}
+					}
+				}
+				break;
+			}
+		}
+
+		/* fill refinement history data
+	     * no parent
+	     */
+	    parent->gln_parent = -1;
+	    /* I was coarsened */
+	    parent->gln_el = -1;
+
+	    /* reset coarsening data */
+	    for(id=0;id<P4EST_CHILDREN;++id){
+	    	child = (user_data_t *) outgoing[id]->p.user_data;
+	    	parent->gln_children[id_ch[id]] = child->gln_el;
+	    }
+	    /* reset refine mark */
+	    parent->ref_mark = NP4_RM_NONE;
+
+#ifdef DEBUG
+	    /* for testing */
+	    user_data_t * child0, * child1;
+	    for(id=0;id<P4EST_CHILDREN;++id){
+	    	child = (user_data_t *) outgoing[id]->p.user_data;
+	    	printf("crs %i\n",
+	    			parent->gln_children[id_ch[id]]);
+	    	if (id_ch[id] == 0)
+	    		child0 = (user_data_t *) outgoing[id]->p.user_data;
+	    	if (id_ch[id] == (P4EST_CHILDREN-1))
+	    		child1 = (user_data_t *) outgoing[id]->p.user_data;
+	    }
+	    printf("crs %i %i %i %i\n",parent->gln_children[0],parent->gln_children[1],
+	    		parent->gln_children[2],parent->gln_children[3]);
+	    for(il=0;il<N_PSCL+2;++il){
+	    	for(jl=0;jl<P4EST_FACES;++jl){
+	    		printf("BC %i %i ,%c%c, ,%c%c, ,%c%c, \n",il,jl,
+	    				parent->cbc[il][jl][0],parent->cbc[il][jl][1],
+	    				child0->cbc[il][jl][0],child0->cbc[il][jl][1],
+	    				child1->cbc[il][jl][0],child1->cbc[il][jl][1]);
+	    	}
+	    }
+#endif
+	} else if (num_outgoing == 1 && num_incoming == P4EST_CHILDREN) {
+		/* this is refining */
+		parent = (user_data_t *) outgoing[0]->p.user_data;
+		/* get child id */
+		for(id=0;id<P4EST_CHILDREN;id++){
+			id_ch[id] = p4est_quadrant_child_id (incoming[id]);
+		}
+
+		for (id=0;id<P4EST_CHILDREN;++id){
+			child = (user_data_t *) incoming[id]->p.user_data;
+			/* copy data from the parent (filled in refine_fn) */
+			memcpy (child, parent, p4est->data_size);
+
+		    /* reset refine mark
+		     * be careful not to coarsen quads just refined
+		     */
+		    child->ref_mark = NP4_RM_NONE;
+
+		    /* store parent number on nek5000 side */
+		    child->gln_parent = parent->gln_el;
+		    /* who am I */
+		    child->gln_el = id_ch[id];
+
+		    /* reset coarsening data */
+		    for(il=0;il<P4EST_CHILDREN;++il){
+		    	child->gln_children[il] = -1;
+		    }
+
+		    /* go across all faces */
+		    for(il=0;il<P4EST_FACES;++il){
+		    	/* test if the face is an external one
+		    	 * (with respect to tree, not the mesh)
+		    	 * find face neighbor
+		    	 */
+		    	p4est_quadrant_face_neighbor (incoming[id], il, &tmp_q);
+		    	/* does neighbor belong to the same tree */
+		    	if(p4est_quadrant_is_inside_root (&tmp_q)){
+		    		/* internal face
+		    		 * fill data
+		    		 * curvature
+		    		 * corresponding faces
+		    		 */
+		    		if ((il % 2) == 1){
+		    			jl=il-1;
+		    		}
+		    		else{
+		    			jl=il+1;
+		    		}
+		    		if ((parent->crv[il] == 0)&&(parent->crv[jl] == 0)){
+		    			child->crv[il] = 0;
+		    		}
+		    		else{
+		    			child->crv[il] = -1;
+		    		}
+		    		// child->crv[il] = parent->crv[il]; // old version; why???
+		    		/* boundary conditions
+		    		 * this is done in fp4est_bc_check, so I comment it here
+		    		 */
+#if 0
+		    		for(jl=0;jl<N_PSCL+2;++jl){
+		    			child->cbc[jl][il][0] = 'E';
+		    			child->cbc[jl][il][1] = ' ';
+		    			child->cbc[jl][il][2] = ' ';
+		    			for(kl=0;kl<5;++kl){
+		    				child->bc[jl][il][kl] = 0.0;
+		    			}
+		    		}
+#endif
+		    	}
+		    	else{
+		    		// external face
+		    		// copy data
+		    		// curvature
+		    		child->crv[il] = parent->crv[il];
+		    		// boundary conditions
+		    		for(jl=0;jl<N_PSCL+2;++jl){
+		    			for(kl=0;kl<3;++kl){
+		    				child->cbc[jl][il][kl] = parent->cbc[jl][il][kl];
+		    			}
+		    			for(kl=0;kl<5;++kl){
+		    				child->bc[jl][il][kl] = parent->bc[jl][il][kl];
+		    			}
+		    		}
+		    	}
+
+		    }
+#ifdef DEBUG
+		    /*for testing */
+		    printf("ref %i %i\n",child->gln_el,child->gln_parent);
+		    for(il=0;il<N_PSCL+2;++il){
+		    	for(jl=0;jl<P4EST_FACES;++jl){
+		    		printf("BC %i %i ,%c%c, ,%c%c, \n",il,jl,
+		    				child->cbc[il][jl][0],child->cbc[il][jl][1],
+		    				parent->cbc[il][jl][0],parent->cbc[il][jl][1]);
+		    	}
+		    }
+#endif
+		}
+
+	} else {
+		/* something is wrong */
+		SC_ABORT("Wrong in/out quad number; aborting: quad_replace\n");
+	}
+}
+
+/*tree refinement */
+void fp4est_refine(int *max_level)
+{
+	int refine_recursive = 0;
+	p4est_refine_ext (tree_nek, refine_recursive, *max_level,
+			ref_mark_f, NULL, quad_replace);
+}
+
+/* tree coarsening */
+void fp4est_coarsen()
+{
+	int coarsen_recursive = 0;
+	int callback_orphans = 0;
+	p4est_coarsen_ext (tree_nek, coarsen_recursive, callback_orphans,
+			crs_mark_f, NULL, quad_replace);
+}
+
+/* 2:1 tree balancing */
+void fp4est_balance()
+{
+	p4est_balance_ext (tree_nek, P4EST_CONNECT_FULL,
+			NULL, quad_replace);
+}
+
 
 /* I/O (VTK) */
 void fp4est_vtk_write(char * filename, int len_f) {
@@ -389,7 +676,7 @@ void iter_msh_dat(p4est_iter_volume_info_t * info, void *user_data) {
 	iwl = info->quadid + tree->quadrants_offset;
 	iwlt = (int) iwl;
 	// global quad number
-	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+	iwg = (int) info->p4est->global_first_quadrant[info->p4est->mpirank] + iwlt;
 
 	// test V versus T meshes; no V mesh beyond nelv
 	if (data->imsh && iwg < trans_data->nelv) {
@@ -485,7 +772,7 @@ void iter_msh_hst(p4est_iter_volume_info_t * info, void *user_data) {
 	iwl = info->quadid + tree->quadrants_offset;
 	iwlt = (int) iwl;
 	// global quad number
-	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+	iwg = (int) info->p4est->global_first_quadrant[info->p4est->mpirank] + iwlt;
 
 	// check refinement status
     ic = data->gln_children[0];
@@ -972,7 +1259,7 @@ void iter_refm(p4est_iter_volume_info_t * info, void *user_data) {
 	iwl = info->quadid + tree->quadrants_offset;
 	iwlt = (int) iwl;
 	// global quad number
-	iwg = (int) tree_nek->global_first_quadrant[tree_nek->mpirank] + iwlt;
+	iwg = (int) info->p4est->global_first_quadrant[info->p4est->mpirank] + iwlt;
 
     // correct global element number on nek5000 side if necessary; it can happen
     // if .rea file was used for mesh generation
@@ -1012,6 +1299,8 @@ void iter_bc_chk(p4est_iter_face_info_t * info, void *user_data) {
 
 	int mpirank = info->p4est->mpirank;
 	p4est_gloidx_t gfirst_quad =  info->p4est->global_first_quadrant[mpirank];
+	/* ghost data */
+	user_data_t *ghost_data = (user_data_t *) info->p4est->user_pointer;
 
 	sc_array_t *sides = &(info->sides);
 	p4est_iter_face_side_t *side;

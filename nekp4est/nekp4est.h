@@ -6,7 +6,7 @@
  *
  * @ingroup nekp4est
  */
-/** @defgroup nekp4est Nonconforming Nek5000 with p4est
+/** @defgroup nekp4est Non-conforming Nek5000 with p4est
  *
  * AMR version of nek5000
  */
