@@ -68,11 +68,7 @@
       integer iunit, ierr
 #endif
 !-----------------------------------------------------------------------
-!     reset refinement flag
-!      NP4_IFRESET_DSS = .FALSE.
-
-      call nekp4est_log
-     $      (NP4_LP_PRD,'Get node numberring.')
+      call nekp4est_log(NP4_LP_PRD,'Get node numberring.')
 
 !     create gll points numbering
       call fp4est_lnodes_new()
@@ -281,8 +277,7 @@
       integer iunit, ierr
 #endif
 !-----------------------------------------------------------------------
-      call nekp4est_log
-     $      (NP4_LP_PRD,'Get element elighment.')
+      call nekp4est_log(NP4_LP_PRD,'Get element elighment.')
 
 !     reset arrays
       il = LELT*NP4_NFCS

@@ -3,6 +3,12 @@
 !! @brief Main interface for nekp4est
 !! @author Adam Peplinski
 !! @date Feb 26, 2016
+!  There are two version of local refinement/coarsening routines performing
+!  element refinement in different order. Fhe first one refines all elements
+!  for single variable. The second one reverts the ordering refining all
+!  variables for single element. Defined NP4_LREF_V gives first option.
+#define NP4_LREF_V
+!!!#undef NP4_LREF_V
 !=======================================================================
 !> @brief Initialisation of sc and p4est libraries
 !! @param[in] intracomm mpi communicator
@@ -239,10 +245,6 @@
       include 'INPUT'
       include 'NEKP4EST'
 
-!     face and vertex number
-      integer n_fcs, n_vrts
-      parameter (n_fcs=2*LDIM, n_vrts=2**LDIM)
-
 !     common blocks
       integer nidl,npl,nekcomm,nekgroup,nekreal
       common /nekmpi/ nidl,npl,nekcomm,nekgroup,nekreal
@@ -312,8 +314,7 @@
       call fp4est_bc_check(IBC, NFLDT)
 
 !     check if we generate mesh from .rea or .mesh
-!!!      if (nekp4est_ifmesh()) then
-      if (.FALSE.) then
+      if (nekp4est_ifmesh()) then
 !     we use nek5000 standard method to generate the mesh
 
 !     check consistency of p4est structure and .rea file
@@ -331,7 +332,8 @@
         endif
 
       else
-!     we skip mesh generation part in nek5000 and mesh structure data in .rea
+!     we skip mesh generation part in nek5000 and mesh structure data
+!     in .rea
 
 !     global element count
         NELGT = NP4_NELGT
@@ -353,8 +355,8 @@
         call chk_nel
 
 !     initialize arrays
-!     some of them are done in initdat but not all. It would be good to do it consistently
-!     for now I'm leaving it as it is
+!     some of them are done in initdat but not all. It would be good to
+!     do it consistently but for now I'm leaving it as it is
         call izero(crvl ,6*LELT)
         call rzero(CURVE ,72*LELT)
         call blank(CCURVE,12*LELT)
@@ -364,9 +366,9 @@
         call blank(CBC,lcbc)
 
 !     load mesh data to local arrays
-!     In this version we load correct bc data and only mark for curved faces.
-!     For now this should be enough as mesh generation is skipped and curvature is
-!     used only in setrzer and setdef
+!     In this version we load correct bc data and only mark for curved
+!     faces. For now this should be enough as mesh generation is skipped
+!     and curvature is used only in setrzer and setdef
         call fp4est_msh_get_dat
      $       (IBC,NFLDT,NELGV,LELT,IGROUP,NP4_LEVEL,crvl,BC,CBC)
 
@@ -390,10 +392,10 @@
 !     mesh transfer
 !     important topology variables;
 !     originally set in stup_topo, but I use them, so I do it here
-!!!        call nekp4est_setup_topo
+        call nekp4est_setup_topo
 
 !     redistribute data
-!!!        call nekp4est_tree_transfer
+        call nekp4est_tree_transfer
 
 !     GLL points (XM1, YM1, ZM1) and element vertices (XC, YC, ZC)
 !     will be filled after io module is initialised
@@ -483,7 +485,8 @@
             offset(eg+1) = offset(eg+1) + offset(eg)
          enddo
 
-!     save for future backward communication (fom nek5000 to p4est element distribution)
+!     save for future backward communication (fom nek5000 to p4est
+!     element distribution)
          call icopy(NP4_NELNID,offset,NP+1)
 
 #ifdef DEBUG
@@ -506,14 +509,15 @@
 !     be slow
         if (NP4_IMAP.eq.0) then     ! check mapping count
 !     first partitioning
-!     we use sub-domain processor coupling related to p4est partitioning so no
-!     initialisation of GLLNID is necessary
+!     we use sub-domain processor coupling related to p4est partitioning
+!     so no initialisation of GLLNID is necessary
             eg=NP
 !     simple timing
             t1 = dnekclock()
             call fpmetis_part(nekcomm, offset,graph_offset, graph,
      $          eg, GLLNID(NP4_NELIT+1))
-!     this should increase partitioning quality, but I don't see any improvement
+!     this should increase partitioning quality, but I don't see any
+!     improvement
 !            call fpmetis_refine(nekcomm, offset,graph_offset, graph,
 !     $          eg, GLLNID(NP4_NELIT+1))
             t2 = dnekclock()
@@ -561,7 +565,8 @@
             t2 = 1000.0
             call fpmetis_rpart(nekcomm, offset,graph_offset, graph,
      $          eg, GLLNID(NP4_NELIT+1),t2)
-!     this should increase partitioning quality, but I don't see any improvement
+!     this should increase partitioning quality, but I don't see any
+!     improvement
 !            call fpmetis_refine(nekcomm, offset,graph_offset, graph,
 !     $          eg, GLLNID(NP4_NELIT+1))
             t2 = dnekclock()
@@ -623,6 +628,273 @@
 
 !     update mapping count
       NP4_IMAP = NP4_IMAP + 1
+
+      return
+      end
+!=======================================================================
+!> @brief Fill in XC, YC, ZC
+!! @details ill in XC, YC, ZC arrays based on real vertex position from
+!!  XM1, YM1, ZM1
+      subroutine nekp4est_fillxyzc
+      implicit none
+
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'
+      include 'GEOM_DEF'
+      include 'GEOM'
+
+!     local variables
+      integer eg,il,jl,kl,nl ! loop index
+
+!     to change vertex ordering back to prenek vesion
+      integer h2s(8) ! hypercube to strange ordering
+      save    h2s
+      data    h2s / 1,2,4,3,5,6,8,7 /
+!-----------------------------------------------------------------------
+!     transfer vertex coordinates
+!     set Z index fro 3D case
+      kl=1
+!     element loop
+      do eg=1,NELT
+!     count vertices
+        nl=1
+#if N_DIM == 3
+        do kl=1,NZ1,NZ1-1
+            do jl=1,NY1,NY1-1
+                do il=1,NX1,NX1-1
+                    XC(h2s(nl),eg) = XM1(il,jl,kl,eg)
+                    YC(h2s(nl),eg) = YM1(il,jl,kl,eg)
+                    ZC(h2s(nl),eg) = ZM1(il,jl,kl,eg)
+                    nl = nl+1
+                enddo
+            enddo
+        enddo
+#else
+        do jl=1,NY1,NY1-1
+            do il=1,NX1,NX1-1
+                XC(h2s(nl),eg) = XM1(il,jl,kl,eg)
+                YC(h2s(nl),eg) = YM1(il,jl,kl,eg)
+                ZC(h2s(nl),eg) = 0.0
+                nl = nl+1
+            enddo
+        enddo
+#endif
+      enddo
+
+      return
+      end
+!=======================================================================
+!> @brief Do we use mesh from .mesh file
+!! @return TRUE if .mesh file is loaded, otherwise FALSE
+      logical function nekp4est_ifmesh()
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'INPUT_DEF'
+      include 'INPUT'
+      include 'NEKP4EST'
+
+!     local variables
+      integer nn
+!-----------------------------------------------------------------------
+!     if we reset mesh after refinement then we for sure do not use .rea
+      if (NP4_IFRESET) then
+        nekp4est_ifmesh = .false.
+        return
+      endif
+
+!     check PARAM(33) - input file number
+      nn = int(PARAM(33))
+      if (nn.le.0) then
+!     check if the max quadrnt level is 0
+        if (NP4_MLEV.eq.0) then
+!     no refinement
+!     we can use nek5000 standard method to generate the mesh
+            nekp4est_ifmesh = .true.
+        else
+!     mesh was refined
+            call nekp4est_abort('Error: imesh restart inconsistent')
+        endif
+      else
+        nekp4est_ifmesh = .false.
+      endif
+
+      return
+      end
+!=======================================================================
+!> @brief Main routine for mesh refinement/coaresering
+      subroutine nekp4est_refinement()
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'PARALLEL_DEF'
+      include 'PARALLEL'
+      include 'TSTEP_DEF'
+      include 'TSTEP'
+      include 'NEKP4EST'
+
+!     local variables
+      integer il, jl
+
+!     simple timing
+      real t1, t2, tmp, t21, t22
+!     call counter
+      integer icalled
+      save icalled
+      data icalled /0/
+
+!     functions
+      integer iglmin, iglmax, iglsum
+      real dnekclock
+!-----------------------------------------------------------------------
+!     simple timing
+      t1 = dnekclock()
+!     get averaged nek cycle timing
+      NP4_T2N = dnekclock()
+      if (icalled.gt.0)
+     $ NP4_TCN = (NP4_TCN*(icalled-1)+NP4_T2N-NP4_T1N)/real(icalled)
+      icalled = icalled + 1
+
+!     simple timing
+      t21 = dnekclock()
+!     get refinement/coarsering mark
+      call nekp4est_refinement_mark()
+!     count number of calls
+      NP4_EER_CNT = NP4_EER_CNT + 1
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCER = NP4_TCER + t22 - t21
+
+!     check if there is any refinement/coarsening mark
+      il = iglmin(NP4_MARK,NP4_NELT)
+      jl = iglmax(NP4_MARK,NP4_NELT)
+
+      if (il.eq.0.and.jl.eq.0) then
+        call nekp4est_log(NP4_LP_PRD,'No refine mark.')
+!     simple timing
+        t2 = dnekclock()
+        NP4_TC = NP4_TC + t2 - t1
+!     get averaged nek cycle timing
+        NP4_T1N = dnekclock()
+        return
+      endif
+
+!     stamp logs
+      call nekp4est_log(NP4_LP_PRD,'Global refinement; BEGIN.')
+
+!     refinement count
+      NP4_REF_CNT = NP4_REF_CNT + 1
+
+!     simple timing
+      t21 = dnekclock()
+!     perform operations on p4est side
+!!!      call nekp4est_p4est_refine
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCP4 = NP4_TCP4 + t22 - t21
+
+!     simple timing
+      t21 = dnekclock()
+!     before refining make sure BM1 is removed from rhs
+      call nekp4est_remove_bm
+!     regenerate mesh info on nek side
+!!!      call nekp4est_mesh_regenerate
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCPN = NP4_TCPN + t22 - t21
+
+!     simple timing
+      t21 = dnekclock()
+!     refine local data
+!     there are two version of local refinement routines
+#ifdef NP4_LREF_V
+      call nekp4est_refine_local_v
+#else
+      call nekp4est_refine_local_el
+#endif
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCL = NP4_TCL + t22 - t21
+
+!     simple timing
+      t21 = dnekclock()
+!     redestribute and sort data
+!!!      call nekp4est_redistribute
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCC = NP4_TCC + t22 - t21
+
+!     simple timing
+      t21 = dnekclock()
+!     coarsen local data
+!     there are two version of local coarsening routines
+#ifdef NP4_LREF_V
+      call nekp4est_coarsen_local_v
+#else
+      call nekp4est_coarsen_local_el
+#endif
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCL = NP4_TCL + t22 - t21
+
+!     set reset flag
+      NP4_IFRESET = .TRUE.
+
+!     simple timing
+      t21 = dnekclock()
+!     reinitialise solver
+!!!      call nekp4est_nek_reinit
+!     finally make sure rhs is multiplied by BM1
+      call nekp4est_mult_bm
+!     simple timing
+      t22 = dnekclock()
+      NP4_TCS = NP4_TCS + t22 - t21
+
+!     set reset flag
+      NP4_IFRESET = .FALSE.
+
+!     stamp logs
+      call nekp4est_log(NP4_LP_PRD,'Global refinement; END.')
+
+!     simple timing
+      t2 = dnekclock()
+      tmp = t2 - t1
+!     total
+      NP4_TC = NP4_TC + tmp
+!     evolution
+      NP4_TCE = NP4_TCE + tmp
+
+!     get averaged nek cycle timing
+      NP4_T1N = dnekclock()
+
+      return
+      end
+!=======================================================================
+!> @brief Get refinement mark
+      subroutine nekp4est_refinement_mark
+      implicit none
+      include 'SIZE_DEF'
+      include 'SIZE'
+      include 'NEKP4EST'
+!-----------------------------------------------------------------------
+      call nekp4est_log(NP4_LP_PRD,'Get refinement mark.')
+
+!     reset refinement mark
+      call izero(NP4_MARK,NELT)
+
+!     Different methods for refinemen marking
+
+!     Error Estimator
+      call err_est_mark(NP4_MARK,NP4_LEVEL)
+
+!     user methods based on global element number
+
+!     user methods based on element positions
+
+!     redistribute refinement mark back to p4est element distribution
+      call nekp4est_mark_transfer
 
       return
       end

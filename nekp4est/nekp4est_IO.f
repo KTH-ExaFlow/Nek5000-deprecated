@@ -360,7 +360,7 @@
 
       ierr = 0
 
-c     close files
+!     close files
 #ifdef MPIIO
       if (nid.eq.pid0r) call byte_close_mpi(ifh_mbyte,ierr)
 #else
@@ -407,7 +407,7 @@ c     close files
      $    call nekp4est_abort('Error; nekprest_mfi: wrong file number')
       call nekp4est_mfi('MSH',NP4_IOSTART)
 !     fill XC, YC, ZC arrays
-!!!!      call nekp4est_fillxyzc
+      call nekp4est_fillxyzc
 
 !     simple timing
       tmp= dnekclock() -t1

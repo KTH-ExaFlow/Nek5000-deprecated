@@ -223,3 +223,15 @@
       return
       end
 !=======================================================================
+!> @brief Important topology variables
+!! @details Originally set in setup_topo, but I use them for data transfer,
+!!  so to be sure they are initialised I do it here.
+      subroutine nekp4est_setup_topo
+      implicit none
+!-----------------------------------------------------------------------
+!     prenek to nek face reordering
+      call initds
+
+      return
+      end
+!=======================================================================

@@ -104,9 +104,8 @@
       common /nekp4est_bcomm/ NP4_MARK, NP4_LEVEL
 
 !     logical variables to correlate mesh modification and redistribution
-!     additional flag is necessary for resetting dssum and getting new nodes numberring
-      logical NP4_IFRESET, NP4_IFRESET_DSS
-      common /nekp4est_check/ NP4_IFRESET, NP4_IFRESET_DSS
+      logical NP4_IFRESET
+      common /nekp4est_check/ NP4_IFRESET
 
 !     number of refinement/coarsening
       integer NP4_REF_CNT, NP4_EER_CNT
